@@ -11,13 +11,17 @@
     "build": "tsup",
     "start": "node dist/index.js",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run --passWithNoTests",
+    "seed": "tsx src/seed.ts"
   },
   "dependencies": {
     "@hono/node-server": "^2.1.1",
+    "@hono/zod-validator": "^0.9.1",
     "@parking/db": "workspace:*",
     "@parking/domain": "workspace:*",
+    "drizzle-orm": "^0.45.2",
     "hono": "^4.13.7",
+    "ioredis": "^6.0.0",
     "zod": "^4.5.4"
   },
   "devDependencies": {
