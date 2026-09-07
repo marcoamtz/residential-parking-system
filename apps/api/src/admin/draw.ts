@@ -20,6 +20,8 @@ export interface RunDrawParams {
   cycleId: string;
   buildingId: string;
   executedByUserId: string | null;
+  /** Fixtures and tests may pin the seed for reproducible results. Production callers leave it unset. */
+  seed?: string;
 }
 
 export interface RunDrawOutcome {
@@ -68,7 +70,7 @@ export async function runDraw(db: Db, params: RunDrawParams): Promise<RunDrawOut
       cycleId: cycle.id,
       entrants,
       spots,
-      seed: randomBytes(16).toString("hex"),
+      seed: params.seed ?? randomBytes(16).toString("hex"),
     };
     const result: DrawResult = executeDraw(input);
 
