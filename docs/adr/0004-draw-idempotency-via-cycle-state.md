@@ -12,14 +12,14 @@ A cycle has a status of `open` or `drawn`. The draw runs in one transaction that
 
 ```sql
 UPDATE raffle_cycles
-SET status = 'drawn', drawn_at = now(), seed = $2, drawn_by = $3
+SET status = 'drawn'
 WHERE id = $1 AND status = 'open'
 RETURNING id;
 ```
 
-If zero rows return, another draw already claimed the cycle and the transaction aborts with a conflict response. Under PostgreSQL's default `READ COMMITTED` isolation, a concurrent transaction blocks on the row lock and then re-evaluates the `WHERE` clause against the committed row, so exactly one caller wins the transition.
+If zero rows return, another draw already claimed the cycle and the transaction aborts with a conflict response. The same transaction then inserts the `raffle_draws` verification row (seed, input snapshot, who ran it) and the allocations. Under PostgreSQL's default `READ COMMITTED` isolation, a concurrent transaction blocks on the row lock and then re-evaluates the `WHERE` clause against the committed row, so exactly one caller wins the transition.
 
-The allocation constraints from ADR-0002 remain the hard invariant. If the state transition were ever bypassed, the database would still reject a second allocation for the same spot or registration.
+The allocation constraints from ADR-0002 remain the hard invariant. If the state transition were ever bypassed, the database would still reject a second allocation for the same spot or registration, a second verification row for the same cycle, or an allocation whose registration belongs to a different cycle (composite foreign key).
 
 ## Consequences
 

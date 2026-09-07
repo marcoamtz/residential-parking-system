@@ -20,7 +20,8 @@ Drizzle ORM for schema definition, migrations, and queries. Schema is TypeScript
 ## Consequences
 
 - Concurrency safety comes from the database. Application code can be simple.
-- History is the allocations and registrations tables joined to cycles. No separate audit or event table for the prototype.
+- History is the allocations and registrations tables joined to cycles. The only additional record is one `raffle_draws` row per cycle holding the seed and the exact input handed to the draw function, so any draw can be replayed and verified.
+- Migrations are applied by a small script using Drizzle's migrator, run as a release step. The `drizzle-kit` CLI is used only to generate migration files, because its `migrate` command exits without printing the underlying database error.
 - Drizzle stays close to SQL, so indexes and query plans are visible and tunable. There is no query engine binary to ship.
 - JSONB is available for telemetry payloads when license plate events arrive.
 - Cost: Drizzle is younger than Prisma or TypeORM. Accepted because the schema is small and the SQL surface is standard.
