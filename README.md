@@ -22,15 +22,32 @@ This repository is a prototype built to demonstrate architecture, planning, and 
 Requirements: Node.js 22 or newer, pnpm 10, Docker.
 
 ```sh
-docker compose up -d          # PostgreSQL and Redis
-cp .env.example .env
-pnpm install
-pnpm db:migrate               # apply schema
-pnpm db:seed                  # one building, 12 residents, two drawn quarters, one open
-pnpm dev                      # API on :3000, web on :5173
+docker compose up -d --wait       # PostgreSQL 16 and Redis 7, waits for health checks
+pnpm install --frozen-lockfile
+pnpm db:migrate                   # apply the schema
+pnpm db:seed                      # one building, 12 residents, two drawn quarters, one open
+pnpm test                         # domain unit tests and PostgreSQL-backed integration tests
+pnpm dev                          # API on http://localhost:3000, web on http://localhost:5173
 ```
 
-Open http://localhost:5173 and sign in as `admin@parking.local` or any resident such as `unit101@parking.local`. Development login is password-less; see [ADR-0008](docs/adr/0008-mock-auth-jwt-cookie-rbac.md) for the production path.
+No `.env` file is needed for local development: the API falls back to the Docker Compose connection strings and a development-only JWT secret. To override anything, `cp .env.example .env` and edit. In production every variable in `.env.example` is required and the API refuses to start without them.
+
+To start over from an empty database: `docker compose down -v`, then repeat from `docker compose up -d --wait`.
+
+### Seeded accounts
+
+Development login is password-less (see [ADR-0008](docs/adr/0008-mock-auth-jwt-cookie-rbac.md) for the production path). Open http://localhost:5173 and pick an account, or type its email.
+
+| Account | Role | What you will see |
+| --- | --- | --- |
+| `admin@parking.local` | Building administrator | Three cycles (two drawn, one open with 6 entrants), four spots, "Run draw" on the open cycle |
+| `unit104@parking.local` | Resident, holds spot P3 | Lost cycle 1, won cycle 2, not registered for cycle 3: the "Register" button is live |
+| `unit203@parking.local` | Resident, never allocated | Lost cycle 1, skipped cycle 2, registered for cycle 3: ranks first when the draw runs |
+| `unit101@parking.local` | Resident, holds spot P1 | Lost cycle 1, won cycle 2, registered for cycle 3: will rank last because they hold a spot now |
+| `unit303@parking.local` | Resident, no spot | Entered cycle 2 for the first time and lost, not registered for cycle 3 |
+| `unit<NNN>@parking.local` | Any of units 101–104, 201–204, 301–304 | |
+
+The fixture is deterministic: seeds and ids are pinned, so every machine gets the same history. Running the draw on cycle 3 as the administrator always allocates units 203, 102, 103, and 202 (only the order among the last three depends on the random seed) and leaves 101 and 302 without a spot, because they hold one this quarter.
 
 Quality gates, also run in CI:
 
@@ -59,3 +76,7 @@ Boundaries are enforced by package dependencies: `domain` imports nothing from t
 ## Status
 
 Prototype in progress. Decisions are recorded in `docs/adr`; the scope table in `docs/00-prototype-scope.md` lists what is built versus documented.
+
+## License
+
+Apache License 2.0. See [LICENSE](LICENSE).

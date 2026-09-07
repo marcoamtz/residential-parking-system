@@ -46,26 +46,32 @@ Rotation follows from rule 1 without a special case. If you held a spot last qua
 
 ### A real draw, step by step
 
-These are the actual results of cycle 3 in the seeded development database, drawn from the administrator screen during verification. Seven residents entered for four spots.
+The development fixture (`pnpm db:seed`) is deterministic: seeds and ids are pinned, so the numbers below are identical on every machine. Cycle 2 had ten entrants for four spots.
 
-| Unit | History before cycle 3 | Wait | Wins | Losses | Rank | Spot |
+| Unit | History before cycle 2 | Wait | Wins | Attempts without a spot | Rank | Spot |
 | --- | --- | --- | --- | --- | --- | --- |
-| 302 | Entered cycle 2, lost | never | 0 | 1 | 1 | P4 |
-| 104 | Won cycle 1, lost cycle 2 | 2 | 1 | 1 | 2 | P1 |
-| 102 | Won cycle 1, lost cycle 2 | 2 | 1 | 1 | 3 | P2 |
-| 203 | Won cycle 1, did not enter cycle 2 | 2 | 1 | 0 | 4 | P3 |
-| 101 | Lost cycle 1, won cycle 2 | 1 | 1 | 1 | – | none |
-| 103 | Lost cycle 1, won cycle 2 | 1 | 1 | 1 | – | none |
-| 202 | Lost cycle 1, won cycle 2 | 1 | 1 | 1 | – | none |
+| 201 | Entered cycle 1, lost | never | 0 | 1 | 1 | P4 |
+| 101 | Entered cycle 1, lost | never | 0 | 1 | 2 | P1 |
+| 104 | Entered cycle 1, lost | never | 0 | 1 | 3 | P3 |
+| 302 | First entry | never | 0 | 0 | 4 | P2 |
+| 303 | First entry | never | 0 | 0 | – | none |
+| 304 | First entry | never | 0 | 0 | – | none |
+| 102 | Won cycle 1 (P3) | 1 | 1 | 0 | – | none |
+| 103 | Won cycle 1 (P1) | 1 | 1 | 0 | – | none |
+| 202 | Won cycle 1 (P2) | 1 | 1 | 0 | – | none |
+| 301 | Won cycle 1 (P4) | 1 | 1 | 0 | – | none |
 
 Reading it:
 
-- Unit 302 has never had a spot. Rule 1 puts them first regardless of anything else.
-- Units 104, 102, and 203 all won in cycle 1, so they have waited 2 cycles and have 1 win each. Rules 1 and 2 tie. Rule 3 separates them: 104 and 102 entered cycle 2 and lost (1 attempt without a spot); 203 skipped cycle 2 (0). Persistence is rewarded, so 203 is fourth.
-- 104 versus 102 is a complete tie on the first three rules. The seeded tie-break decided it. With a different seed the order could flip; with the same seed it never will.
-- Units 101, 103, and 202 won last quarter. Wait 1 is the smallest possible value, so they rank behind everyone. There were only four spots.
+- Rule 1 splits the field. Six residents have never had a spot; four held one last quarter. All six never-allocated residents rank above all four holders, however the rest falls.
+- Rule 2 does not separate anyone here: every never-allocated resident has zero wins, every holder has one.
+- Rule 3 orders the six. Units 201, 101, and 104 entered cycle 1 and lost, so they have one attempt without a spot; units 302, 303, and 304 are entering for the first time. Persistence wins: the three previous losers take ranks 1 to 3.
+- Rule 4 decides the last spot. 302, 303, and 304 are a complete tie on the first three rules. The seeded tie-break gave the fourth spot to 302. With a different seed it could have been 303 or 304; with this seed it is always 302.
+- The four holders from cycle 1 rank last. Wait 1 is the smallest possible value. With four spots and six residents ahead of them, none of them gets a spot this quarter.
 
-The same rule is covered by unit tests in `packages/domain/src/draw.test.ts` (15 cases, including "puts a never-allocated resident ahead of last quarter's winner") and by the integration test "ranks a never-allocated resident above last cycle's winner in the next cycle" in `apps/api/src/admin/draw.test.ts`, which runs two consecutive draws against PostgreSQL.
+What happens next is also predictable. Cycle 3 is open with six entrants: 101 and 302 hold spots now (wait 1), 102, 103, and 202 held spots in cycle 1 (wait 2, one attempt without a spot each), and 203 has never had a spot. When the administrator runs the draw, 203 ranks first and 102, 103, and 202 fill the remaining three spots in an order decided by the seed; 101 and 302 go without. If unit 104 registers before the draw, they rank with 101 and 302 and also go without, because they hold a spot this quarter.
+
+The rule is covered by unit tests in `packages/domain/src/draw.test.ts` (15 cases, including "puts a never-allocated resident ahead of last quarter's winner" and "ranks fewer lifetime wins first when the wait is equal", which exercises rule 2) and by the integration test "ranks a never-allocated resident above last cycle's winner in the next cycle" in `apps/api/src/admin/draw.test.ts`, which runs two consecutive draws against PostgreSQL.
 
 ### How a resident can verify a draw
 
