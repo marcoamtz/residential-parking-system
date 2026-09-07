@@ -1,0 +1,24 @@
+{
+  "name": "residential-parking-system",
+  "private": true,
+  "packageManager": "pnpm@10.33.4",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "lint": "biome check .",
+    "format": "biome format --write .",
+    "db:generate": "pnpm --filter @parking/db generate",
+    "db:migrate": "pnpm --filter @parking/db migrate"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.5.12",
+    "turbo": "^2.10.12",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.0"
+  }
+}
