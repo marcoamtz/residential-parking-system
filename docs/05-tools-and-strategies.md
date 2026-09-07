@@ -1,27 +1,94 @@
 # Tools and strategies
 
-> Skeleton. Deliverable 3 of the brief. Stack rationale lives in the ADRs; this document summarizes and covers performance and security strategy.
+Stack rationale in full lives in the ADRs. This document summarizes the choices, records the trade-offs that were weighed, and covers performance, security, and reliability strategy.
 
 ## Stack summary
 
-- One table: layer, choice, one-line reason, link to the ADR that has the full reasoning.
-- Development tooling: pnpm, Turborepo, TypeScript strict mode, Biome for lint and format, Vitest, Docker Compose. One line each on what problem it solves.
+| Layer | Choice | One-line reason | Decision record |
+| --- | --- | --- | --- |
+| Repository | pnpm workspace + Turborepo | Compile-time boundaries between packages; cached `typecheck`/`test`/`build` | [ADR-0001](adr/0001-modular-monolith-in-pnpm-workspace.md) |
+| Database | PostgreSQL 16 | Relational invariants as constraints; partial unique indexes; JSONB for telemetry | [ADR-0002](adr/0002-postgresql-with-drizzle.md) |
+| Data access | Drizzle ORM | TypeScript schema, SQL-shaped queries, generated migrations, no query engine binary | [ADR-0002](adr/0002-postgresql-with-drizzle.md) |
+| API | Hono on Node.js LTS | Web-standard request/response, small, typed client for the first-party web app | [ADR-0006](adr/0006-hono-api-with-shared-types.md) |
+| Validation | Zod | One schema validates the request and types the handler and the client | [ADR-0006](adr/0006-hono-api-with-shared-types.md) |
+| Cache | Redis 7 | Version-keyed cache-aside; future queue for camera events | [ADR-0005](adr/0005-redis-cache-aside-with-version-key.md) |
+| Web | React 19 + Vite, TanStack Query, Tailwind CSS | Authenticated portal, no SEO, server state handled declaratively | [ADR-0010](adr/0010-react-vite-spa.md) |
+| Sessions | JWT in HttpOnly cookie | Stateless API; browser cannot read the token | [ADR-0008](adr/0008-mock-auth-jwt-cookie-rbac.md) |
+
+### Development tooling
+
+| Tool | Problem it solves |
+| --- | --- |
+| TypeScript strict mode with `noUncheckedIndexedAccess` | Array access and optional data are checked at compile time; the codebase has no non-null assertions. |
+| Biome | One tool for lint and format, fast enough to run on every save and in CI. |
+| Vitest | Same runner for pure domain tests and PostgreSQL-backed integration tests. |
+| Docker Compose | PostgreSQL and Redis locally with health checks; the same images CI uses as services. |
+| `tsx` | Runs TypeScript directly in development and for scripts (migrate, seed). |
+| `tsup` | Bundles the API and its workspace packages into one artifact for the container image. |
+| GitHub Actions | Lint, typecheck, migrate, test against real services, build, with Turborepo cache restored between runs. |
+
+## Trade-offs that were weighed
+
+**Hono typed client versus REST with OpenAPI versus tRPC.** The web app needed compile-time checking of request and response shapes; external systems (cameras, an identity provider) need ordinary HTTP. tRPC gives the first and takes away the second. REST with OpenAPI code generation gives both at the cost of a generation step that drifts when someone forgets to run it. Hono's typed client gives both with no generation: the endpoints are ordinary HTTP with JSON bodies, and the web app imports the route type. The cost is a smaller ecosystem than Express or NestJS, acceptable for a four-resource API.
+
+**Node.js LTS versus Bun.** Bun is faster to start and runs TypeScript natively. Production runs Node.js because the observability, security scanning, and container tooling are mature there, and because a long-lived process with a database pool and a queue consumer benefits from the most battle-tested event loop available. Hono is built on web standards, so the same code runs on Bun locally if a developer prefers it; the runtime is not a lock-in.
+
+**Version-keyed cache invalidation versus key scans versus TTL only.** TTL only means residents see stale status for the TTL right after a draw, which is exactly when they look. Deleting specific keys on write means knowing every affected key or scanning Redis, which is fragile as cached views multiply. A per-building version in the key makes every existing key unreachable with one `INCR`, no scan, and old keys expire on their own. The cost is one extra `GET` per read and coarse invalidation (one registration invalidates all residents' cached status in that building), both acceptable because reads are cheap to rebuild and writes are rare.
+
+**Drizzle versus Prisma.** Prisma has the better onboarding experience and a mature ecosystem. It also ships a query engine, abstracts the SQL that matters for index and constraint work, and its migration workflow fights composite constraints. Drizzle is a thin layer over SQL: the schema file reads like DDL, `sql` fragments are first-class, and the composite foreign key and partial unique index in this schema are declared inline. The migrator is invoked from a script rather than `drizzle-kit migrate` because the CLI exits without printing the database error on failure, which was discovered while building this.
+
+**Deterministic ranking versus weighted lottery.** Covered in [ADR-0003](adr/0003-fairness-ranking-rule.md). Short version: a lottery with tuned weights cannot be explained in a sentence and every constant invites "why that number"; a sorted list can be explained to a resident and replayed by anyone.
+
+**State transition as mutex versus serializable transactions.** Covered in [ADR-0004](adr/0004-draw-idempotency-via-cycle-state.md). `UPDATE ... WHERE status = 'open'` under default isolation lets exactly one caller through with no retry loop; unique constraints remain the hard invariant underneath.
 
 ## Performance
 
-- Draw: sorting a few hundred entrants is trivial; the cost is the transaction, kept short by computing outside and writing inside.
-- Reads: cache-aside per [ADR-0005](adr/0005-redis-cache-aside-with-version-key.md). Which endpoints, expected hit rate, and how it is measured.
-- Database: indexes listed against the queries that use them. Connection pooling when API instances exceed a handful. Read replicas are not needed at any realistic building count; stated plainly.
-- Load balancing: stateless API, session in cookie, so any instance serves any request.
+**The draw.** Sorting a few hundred entrants is microseconds. The cost is the transaction, and it is kept short: one `UPDATE` to claim, one query for entrants with history (a CTE with `FILTER` aggregates, no per-entrant round trips), one for active spots, computation in memory, two multi-row `INSERT`s, commit. The cache call happens after commit so no Redis round trip is made while a connection is held.
+
+**Reads.** `GET /api/resident/status` is the hot path after a draw is announced. It is cached per resident under the building version with a 300 second TTL. Expected hit rate after a draw: high, because each resident refreshes several times and the data only changes when someone registers for the next cycle. Measurement: a `cache_hit`/`cache_miss` counter per route is the first metric to add; it is not in the prototype.
+
+**Database.** Every index maps to a query in [02-domain-and-fairness.md](02-domain-and-fairness.md). At residential-building volumes all tables fit in memory and the planner will use indexes for joins and sequential scans for aggregates, both correctly. Connection pooling: `pg.Pool` per API instance today; PgBouncer in transaction mode when instances multiply. Read replicas are not needed on any allocation path and are stated as such rather than listed as a plan.
+
+**Load balancing.** The API is stateless. Sessions are in the cookie, the cache is shared, and the database is the only coordination point. Any instance serves any request; the load balancer needs only `/api/health`.
+
+**What does not need to scale.** Four draws per building per year. Even ten thousand buildings is a hundred draws a day. Design effort went into the read path and tenant isolation, not the draw.
 
 ## Security
 
-- Data protection: TLS everywhere, column-level encryption for plates when they arrive, no personal data in logs, backups encrypted at rest.
-- Authentication and authorization per [ADR-0008](adr/0008-mock-auth-jwt-cookie-rbac.md).
-- Common vulnerabilities: parameterized queries, React escaping, cookie flags, custom header on mutations, rate limiting on auth and webhook routes, dependency audit in CI.
-- Cloud practices: least-privilege service roles, private networking for database and cache, secrets in a managed store, image scanning, infrastructure as code.
+**Data protection.**
+- TLS at the load balancer; the API never listens on a public address.
+- Resident personal data in the prototype is name, unit, and email. When plates arrive they are encrypted at the column level (`pgcrypto`) so a database dump alone does not expose them.
+- Backups encrypted at rest (RDS default). Point-in-time recovery enabled.
+- No personal data in application logs. The request logger records method, path, status, and duration only. Enforced in code review via the pull request checklist.
+
+**Authentication and authorization** ([ADR-0008](adr/0008-mock-auth-jwt-cookie-rbac.md)).
+- Session is an HS256 JWT with a 12 hour expiry in an `HttpOnly`, `Secure`, `SameSite=Strict` cookie. Scripts cannot read it; cross-site requests do not carry it.
+- Role middleware runs before any handler. Resident routes derive the resident from claims; no route accepts a resident id from the client. Admin routes scope every query by the administrator's building.
+- The development login is behind `MOCK_AUTH` and returns `404` in production. Swapping to OIDC replaces one route.
+
+**Common vulnerabilities, mapped to code.**
+| Threat | Control | Where |
+| --- | --- | --- |
+| SQL injection | Parameterized queries only; the one raw SQL query uses tagged-template parameters | `loadEntrants` in `apps/api/src/admin/draw.ts` |
+| XSS | React escapes text by default; no `dangerouslySetInnerHTML`; no HTML rendered from user input | `apps/web` |
+| CSRF | `SameSite=Strict` cookie plus a required `X-Requested-With` header on every mutating request | `apps/api/src/csrf.ts` |
+| Broken object-level authorization | Resident id from session claims; admin queries filtered by `building_id`; cross-tenant access returns 404 | `residentIdOf`, admin routes, integration test "does not let a building draw another building's cycle" |
+| Mass assignment | Zod schemas whitelist exactly the accepted fields | every `zValidator` call |
+| Race conditions | State-transition mutex and unique constraints | `runDraw`, schema |
+| Session theft | HttpOnly cookie; short expiry; secret from the environment, rotated by redeploy | `apps/api/src/auth/session.ts` |
+
+**Cloud practices for the reference topology.**
+- Least-privilege task roles; the API role can reach RDS and ElastiCache and nothing else.
+- Database and cache in private subnets; security groups allow only the API tasks.
+- Secrets in Secrets Manager, injected at task start, never in images or the repository. `.env` is git-ignored and `.env.example` carries no real values.
+- Container images scanned on push. A `pnpm audit` gate with a failure threshold on high severity is the next CI addition; it is not in the prototype pipeline.
+- Infrastructure as code so the security posture is reviewable in a pull request.
 
 ## Reliability and observability
 
-- Structured logs with request ids. Metrics for request latency, cache hit rate, and draw duration. Error tracking. Health endpoint used by the load balancer.
-- Backups and restore drill for PostgreSQL. What is lost if Redis is lost: nothing, by design.
+- **Health.** `/api/health` for the load balancer. A deeper readiness check that pings PostgreSQL is the first addition before production.
+- **Logs.** Structured JSON with a request id, emitted to stdout and shipped by the platform. No personal data.
+- **Metrics to add first.** Request latency by route, cache hit rate, draw duration, 4xx/5xx rates. Error tracking with stack traces on 5xx.
+- **Backups and drills.** Automated RDS snapshots plus point-in-time recovery. A restore drill into staging once per quarter, timed to the cycle boundary when a restore would matter most.
+- **What is lost if Redis is lost.** Nothing. Cached reads rebuild from PostgreSQL; the API logs one warning and continues. When the camera queue exists, events in flight would be lost, so that queue will need Redis persistence or a durable broker. That choice is deferred to the license plate work ([ADR-0009](adr/0009-lpr-as-async-event-subsystem.md)).
+- **Migrations.** Applied as a release step by a one-off task, never at API startup. A failing migration fails the deploy and leaves the running version untouched.
