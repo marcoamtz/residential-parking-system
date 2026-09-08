@@ -1,8 +1,31 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { type FormEvent, useState } from "react";
-import { Badge, Button, Card, ErrorText, Muted } from "../components/ui";
-import { admin } from "../lib/api";
-import { formatDateTime, formatPeriod } from "../lib/format";
+import { ErrorText, Muted, StatusBadge } from "@/components/feedback";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
+import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { admin, type CycleSummary } from "@/lib/api";
+import { formatDateTime, formatPeriod } from "@/lib/format";
 
 export function AdminView() {
   const [selected, setSelected] = useState<string | null>(null);
@@ -29,84 +52,104 @@ function CyclesCard({
 }) {
   const queryClient = useQueryClient();
   const cycles = useQuery({ queryKey: ["admin", "cycles"], queryFn: admin.cycles });
-  const [confirming, setConfirming] = useState<string | null>(null);
   const draw = useMutation({
     mutationFn: admin.draw,
     onSuccess: (_, id) => {
-      setConfirming(null);
       onSelect(id);
       queryClient.invalidateQueries({ queryKey: ["admin"] });
     },
   });
 
   return (
-    <Card title="Cycles">
-      {cycles.isPending && <Muted>Loading…</Muted>}
-      <ErrorText error={cycles.error} />
-      {cycles.data && (
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="text-left text-xs uppercase tracking-wide text-slate-500">
-              <th scope="col" className="py-1 pr-3">
-                #
-              </th>
-              <th scope="col" className="py-1 pr-3">
-                Period
-              </th>
-              <th scope="col" className="py-1 pr-3">
-                Status
-              </th>
-              <th scope="col" className="py-1 pr-3">
-                Entrants
-              </th>
-              <th scope="col" className="py-1">
-                <span className="sr-only">Actions</span>
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {cycles.data.map((c) => (
-              <tr
-                key={c.id}
-                className={`border-t border-slate-100 ${selected === c.id ? "bg-slate-50" : ""}`}
-              >
-                <td className="py-2 pr-3">{c.sequence}</td>
-                <td className="py-2 pr-3 text-slate-600">{formatPeriod(c.startsOn, c.endsOn)}</td>
-                <td className="py-2 pr-3">
-                  <Badge tone={c.status}>{c.status}</Badge>
-                </td>
-                <td className="py-2 pr-3">{c.registrations}</td>
-                <td className="py-2 text-right">
-                  <div className="flex justify-end gap-2">
-                    <Button variant="secondary" onClick={() => onSelect(c.id)}>
-                      View
-                    </Button>
-                    {c.status === "open" &&
-                      (confirming === c.id ? (
-                        <>
-                          <Button
-                            variant="danger"
-                            onClick={() => draw.mutate(c.id)}
-                            disabled={draw.isPending}
-                          >
-                            Confirm draw
-                          </Button>
-                          <Button variant="secondary" onClick={() => setConfirming(null)}>
-                            Cancel
-                          </Button>
-                        </>
-                      ) : (
-                        <Button onClick={() => setConfirming(c.id)}>Run draw</Button>
-                      ))}
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-      <ErrorText error={draw.error} />
+    <Card>
+      <CardHeader>
+        <CardTitle>
+          <h2>Cycles</h2>
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {cycles.isPending && <Muted>Loading…</Muted>}
+        <ErrorText error={cycles.error} />
+        {cycles.data && (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>#</TableHead>
+                <TableHead>Period</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Entrants</TableHead>
+                <TableHead>
+                  <span className="sr-only">Actions</span>
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {cycles.data.map((c) => (
+                <TableRow key={c.id} data-state={selected === c.id ? "selected" : undefined}>
+                  <TableCell>{c.sequence}</TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {formatPeriod(c.startsOn, c.endsOn)}
+                  </TableCell>
+                  <TableCell>
+                    <StatusBadge tone={c.status}>{c.status}</StatusBadge>
+                  </TableCell>
+                  <TableCell>{c.registrations}</TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex justify-end gap-2">
+                      <Button variant="outline" size="sm" onClick={() => onSelect(c.id)}>
+                        View
+                      </Button>
+                      {c.status === "open" && (
+                        <DrawDialog
+                          cycle={c}
+                          pending={draw.isPending}
+                          onConfirm={() => draw.mutate(c.id)}
+                        />
+                      )}
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+        <ErrorText error={draw.error} />
+      </CardContent>
     </Card>
+  );
+}
+
+/** Destructive, irreversible action: a real dialog with focus trap and Escape, not an inline toggle. */
+function DrawDialog({
+  cycle,
+  pending,
+  onConfirm,
+}: {
+  cycle: CycleSummary;
+  pending: boolean;
+  onConfirm: () => void;
+}) {
+  return (
+    <AlertDialog>
+      <AlertDialogTrigger asChild>
+        <Button size="sm" disabled={pending}>
+          Run draw
+        </Button>
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Run the draw for cycle {cycle.sequence}?</AlertDialogTitle>
+          <AlertDialogDescription>
+            {cycle.registrations} registered residents will be ranked and the active spots assigned.
+            Registration closes, the result is final, and residents see it immediately.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogAction onClick={onConfirm}>Run draw</AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }
 
@@ -128,40 +171,44 @@ function NewCycleCard() {
     create.mutate({ startsOn, endsOn });
   }
 
-  const input =
-    "w-full rounded-md border border-slate-300 px-2 py-1 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-500";
-
   return (
-    <Card title="Open a new cycle">
-      <form onSubmit={submit} className="space-y-2">
-        <div className="grid grid-cols-2 gap-2">
-          <label className="text-xs text-slate-600">
-            Starts
-            <input
-              type="date"
-              required
-              value={startsOn}
-              onChange={(e) => setStartsOn(e.target.value)}
-              className={input}
-            />
-          </label>
-          <label className="text-xs text-slate-600">
-            Ends
-            <input
-              type="date"
-              required
-              value={endsOn}
-              onChange={(e) => setEndsOn(e.target.value)}
-              className={input}
-            />
-          </label>
-        </div>
-        <Button type="submit" disabled={create.isPending}>
-          Create cycle
-        </Button>
-        <ErrorText error={create.error} />
-        <Muted>Only one cycle can be open per building.</Muted>
-      </form>
+    <Card>
+      <CardHeader>
+        <CardTitle>
+          <h2>Open a new cycle</h2>
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={submit} className="space-y-3">
+          <div className="grid grid-cols-2 gap-2">
+            <div className="grid gap-1">
+              <Label htmlFor="starts-on">Starts</Label>
+              <Input
+                id="starts-on"
+                type="date"
+                required
+                value={startsOn}
+                onChange={(e) => setStartsOn(e.target.value)}
+              />
+            </div>
+            <div className="grid gap-1">
+              <Label htmlFor="ends-on">Ends</Label>
+              <Input
+                id="ends-on"
+                type="date"
+                required
+                value={endsOn}
+                onChange={(e) => setEndsOn(e.target.value)}
+              />
+            </div>
+          </div>
+          <Button type="submit" disabled={create.isPending}>
+            Create cycle
+          </Button>
+          <ErrorText error={create.error} />
+          <Muted>Only one cycle can be open per building.</Muted>
+        </form>
+      </CardContent>
     </Card>
   );
 }
@@ -190,38 +237,47 @@ function SpotsCard() {
   }
 
   return (
-    <Card title="Spots">
-      <ul className="mb-3 space-y-1 text-sm">
-        {spots.data?.map((s) => (
-          <li key={s.id} className="flex items-center justify-between">
-            <span className={s.isActive ? "" : "text-slate-400 line-through"}>{s.label}</span>
-            <Button
-              variant="secondary"
-              onClick={() => toggle.mutate({ id: s.id, isActive: !s.isActive })}
-              disabled={toggle.isPending}
-              aria-label={`${s.isActive ? "Deactivate" : "Activate"} spot ${s.label}`}
-            >
-              {s.isActive ? "Deactivate" : "Activate"}
-            </Button>
-          </li>
-        ))}
-      </ul>
-      <form onSubmit={submit} className="flex gap-2">
-        <label htmlFor="spot-label" className="sr-only">
-          New spot label
-        </label>
-        <input
-          id="spot-label"
-          value={label}
-          onChange={(e) => setLabel(e.target.value)}
-          placeholder="P5"
-          className="flex-1 rounded-md border border-slate-300 px-2 py-1 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-500"
-        />
-        <Button type="submit" variant="secondary" disabled={create.isPending}>
-          Add
-        </Button>
-      </form>
-      <ErrorText error={create.error ?? toggle.error} />
+    <Card>
+      <CardHeader>
+        <CardTitle>
+          <h2>Spots</h2>
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <ul className="mb-3 space-y-1 text-sm">
+          {spots.data?.map((s) => (
+            <li key={s.id} className="flex items-center justify-between">
+              <span className={s.isActive ? "" : "text-muted-foreground line-through"}>
+                {s.label}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => toggle.mutate({ id: s.id, isActive: !s.isActive })}
+                disabled={toggle.isPending}
+                aria-label={`${s.isActive ? "Deactivate" : "Activate"} spot ${s.label}`}
+              >
+                {s.isActive ? "Deactivate" : "Activate"}
+              </Button>
+            </li>
+          ))}
+        </ul>
+        <form onSubmit={submit} className="flex gap-2">
+          <Label htmlFor="spot-label" className="sr-only">
+            New spot label
+          </Label>
+          <Input
+            id="spot-label"
+            value={label}
+            onChange={(e) => setLabel(e.target.value)}
+            placeholder="P5"
+          />
+          <Button type="submit" variant="outline" disabled={create.isPending}>
+            Add
+          </Button>
+        </form>
+        <ErrorText error={create.error ?? toggle.error} />
+      </CardContent>
     </Card>
   );
 }
@@ -236,54 +292,55 @@ function CycleDetailCard({ cycleId }: { cycleId: string }) {
   const { cycle, registrations, draw } = detail.data;
 
   return (
-    <Card
-      title={`Cycle ${cycle.sequence}: ${formatPeriod(cycle.startsOn, cycle.endsOn)}`}
-      action={<Badge tone={cycle.status}>{cycle.status}</Badge>}
-    >
-      {registrations.length === 0 ? (
-        <Muted>No registrations.</Muted>
-      ) : (
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="text-left text-xs uppercase tracking-wide text-slate-500">
-              <th scope="col" className="py-1 pr-3">
-                Rank
-              </th>
-              <th scope="col" className="py-1 pr-3">
-                Unit
-              </th>
-              <th scope="col" className="py-1 pr-3">
-                Resident
-              </th>
-              <th scope="col" className="py-1">
-                Spot
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {registrations.map((r) => (
-              <tr key={r.registrationId} className="border-t border-slate-100">
-                <td className="py-1.5 pr-3">{r.rank ?? "–"}</td>
-                <td className="py-1.5 pr-3">{r.unit}</td>
-                <td className="py-1.5 pr-3 text-slate-600">{r.fullName}</td>
-                <td className="py-1.5">
-                  {r.spotLabel ? (
-                    <Badge tone="open">{r.spotLabel}</Badge>
-                  ) : (
-                    <Badge tone="muted">none</Badge>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-      {draw && (
-        <p className="mt-3 break-all text-xs text-slate-500">
-          Drawn {formatDateTime(draw.executedAt)}. Seed <code>{draw.seed}</code>. Anyone with the
-          seed and the entrant list can replay this draw.
-        </p>
-      )}
+    <Card>
+      <CardHeader>
+        <CardTitle>
+          <h2>
+            Cycle {cycle.sequence}: {formatPeriod(cycle.startsOn, cycle.endsOn)}
+          </h2>
+        </CardTitle>
+        <CardAction>
+          <StatusBadge tone={cycle.status}>{cycle.status}</StatusBadge>
+        </CardAction>
+      </CardHeader>
+      <CardContent>
+        {registrations.length === 0 ? (
+          <Muted>No registrations.</Muted>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Rank</TableHead>
+                <TableHead>Unit</TableHead>
+                <TableHead>Resident</TableHead>
+                <TableHead>Spot</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {registrations.map((r) => (
+                <TableRow key={r.registrationId}>
+                  <TableCell>{r.rank ?? "–"}</TableCell>
+                  <TableCell>{r.unit}</TableCell>
+                  <TableCell className="text-muted-foreground">{r.fullName}</TableCell>
+                  <TableCell>
+                    {r.spotLabel ? (
+                      <StatusBadge tone="open">{r.spotLabel}</StatusBadge>
+                    ) : (
+                      <StatusBadge tone="muted">none</StatusBadge>
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+        {draw && (
+          <p className="mt-3 break-all text-xs text-muted-foreground">
+            Drawn {formatDateTime(draw.executedAt)}. Seed <code>{draw.seed}</code>. Anyone with the
+            seed and the entrant list can replay this draw.
+          </p>
+        )}
+      </CardContent>
     </Card>
   );
 }

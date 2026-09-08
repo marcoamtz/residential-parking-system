@@ -1,7 +1,17 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Badge, Button, Card, ErrorText, Muted } from "../components/ui";
-import { resident } from "../lib/api";
-import { formatPeriod } from "../lib/format";
+import { ErrorText, Muted, StatusBadge } from "@/components/feedback";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { resident } from "@/lib/api";
+import { formatPeriod } from "@/lib/format";
 
 export function ResidentView() {
   const queryClient = useQueryClient();
@@ -18,89 +28,106 @@ export function ResidentView() {
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-slate-600">
+      <Muted>
         {me.fullName}, unit {me.unit}
-      </p>
+      </Muted>
 
       <div className="grid gap-4 md:grid-cols-2">
-        <Card title="This quarter">
-          {current ? (
-            <>
-              <p className="text-3xl font-semibold text-slate-900">Spot {current.spotLabel}</p>
-              <Muted>{formatPeriod(current.startsOn, current.endsOn)}</Muted>
-            </>
-          ) : (
-            <>
-              <p className="text-lg font-medium text-slate-700">No spot this quarter</p>
-              <Muted>Residents who go without a spot rank first in the next draw.</Muted>
-            </>
-          )}
+        <Card>
+          <CardHeader>
+            <CardTitle>
+              <h2>This quarter</h2>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {current ? (
+              <>
+                <p className="text-3xl font-semibold">Spot {current.spotLabel}</p>
+                <Muted>{formatPeriod(current.startsOn, current.endsOn)}</Muted>
+              </>
+            ) : (
+              <>
+                <p className="text-lg font-medium">No spot this quarter</p>
+                <Muted>Residents who go without a spot rank first in the next draw.</Muted>
+              </>
+            )}
+          </CardContent>
         </Card>
 
-        <Card title="Next draw">
-          {upcoming ? (
-            <>
-              <p className="text-sm text-slate-700">
-                Cycle {upcoming.cycleSequence}: {formatPeriod(upcoming.startsOn, upcoming.endsOn)}
-              </p>
-              {upcoming.registered ? (
-                <p className="mt-2">
-                  <Badge tone="open">Registered</Badge>
+        <Card>
+          <CardHeader>
+            <CardTitle>
+              <h2>Next draw</h2>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {upcoming ? (
+              <>
+                <p className="text-sm">
+                  Cycle {upcoming.cycleSequence}: {formatPeriod(upcoming.startsOn, upcoming.endsOn)}
                 </p>
-              ) : (
-                <div className="mt-2">
-                  <Button onClick={() => register.mutate()} disabled={register.isPending}>
-                    Register for this draw
-                  </Button>
-                  <ErrorText error={register.error} />
-                </div>
-              )}
-            </>
-          ) : (
-            <Muted>No cycle is accepting registrations right now.</Muted>
-          )}
+                {upcoming.registered ? (
+                  <p className="mt-2">
+                    <StatusBadge tone="open">Registered</StatusBadge>
+                  </p>
+                ) : (
+                  <div className="mt-2">
+                    <Button onClick={() => register.mutate()} disabled={register.isPending}>
+                      Register for this draw
+                    </Button>
+                    <ErrorText error={register.error} />
+                  </div>
+                )}
+              </>
+            ) : (
+              <Muted>No cycle is accepting registrations right now.</Muted>
+            )}
+          </CardContent>
         </Card>
       </div>
 
-      <Card title="Your history">
-        {history.length === 0 ? (
-          <Muted>You have not entered a draw yet.</Muted>
-        ) : (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-left text-xs uppercase tracking-wide text-slate-500">
-                <th scope="col" className="py-1 pr-4">
-                  Cycle
-                </th>
-                <th scope="col" className="py-1 pr-4">
-                  Period
-                </th>
-                <th scope="col" className="py-1">
-                  Outcome
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {history.map((h) => (
-                <tr key={h.cycleSequence} className="border-t border-slate-100">
-                  <td className="py-2 pr-4">{h.cycleSequence}</td>
-                  <td className="py-2 pr-4 text-slate-600">{formatPeriod(h.startsOn, h.endsOn)}</td>
-                  <td className="py-2">
-                    {h.outcome === "allocated" ? (
-                      <Badge tone="open">Spot {h.spotLabel}</Badge>
-                    ) : (
-                      <Badge tone="muted">No spot</Badge>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-        <p className="mt-3 text-xs text-slate-500">
-          How the draw ranks entrants: longest wait since a spot first, then fewest spots ever, then
-          most attempts, then a seeded coin flip.
-        </p>
+      <Card>
+        <CardHeader>
+          <CardTitle>
+            <h2>Your history</h2>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {history.length === 0 ? (
+            <Muted>You have not entered a draw yet.</Muted>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Cycle</TableHead>
+                  <TableHead>Period</TableHead>
+                  <TableHead>Outcome</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {history.map((h) => (
+                  <TableRow key={h.cycleSequence}>
+                    <TableCell>{h.cycleSequence}</TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {formatPeriod(h.startsOn, h.endsOn)}
+                    </TableCell>
+                    <TableCell>
+                      {h.outcome === "allocated" ? (
+                        <StatusBadge tone="open">Spot {h.spotLabel}</StatusBadge>
+                      ) : (
+                        <StatusBadge tone="muted">No spot</StatusBadge>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+          <p className="mt-3 text-xs text-muted-foreground">
+            How the draw ranks entrants: longest wait since a spot first, then fewest spots ever,
+            then most attempts, then a seeded coin flip.
+          </p>
+        </CardContent>
       </Card>
     </div>
   );

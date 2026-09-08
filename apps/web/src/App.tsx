@@ -1,9 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Button, ErrorText, Muted } from "./components/ui";
-import { ApiError, auth } from "./lib/api";
-import { AdminView } from "./views/AdminView";
-import { LoginView } from "./views/LoginView";
-import { ResidentView } from "./views/ResidentView";
+import { ErrorText, Muted } from "@/components/feedback";
+import { Button } from "@/components/ui/button";
+import { ApiError, auth } from "@/lib/api";
+import { AdminView } from "@/views/AdminView";
+import { LoginView } from "@/views/LoginView";
+import { ResidentView } from "@/views/ResidentView";
 
 export function App() {
   const queryClient = useQueryClient();
@@ -20,17 +21,18 @@ export function App() {
   const signedOut = me.isError && me.error instanceof ApiError && me.error.status === 401;
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900">
-      <header className="border-b border-slate-200 bg-white">
+    <div className="min-h-screen bg-background text-foreground">
+      <header className="border-b bg-card">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-3">
           <h1 className="text-lg font-semibold">Residential Parking</h1>
           {me.data && (
-            <div className="flex items-center gap-3 text-sm text-slate-600">
+            <div className="flex items-center gap-3 text-sm text-muted-foreground">
               <span>
                 {me.data.email} · {me.data.role}
               </span>
               <Button
-                variant="secondary"
+                variant="outline"
+                size="sm"
                 onClick={() => logout.mutate()}
                 disabled={logout.isPending}
               >
