@@ -19,7 +19,7 @@ This repository is a prototype built to demonstrate architecture, planning, and 
 
 ## Run it locally
 
-Requirements: Node.js 22 or newer, pnpm 10, Docker.
+Requirements: Node.js 24 (pinned in `.node-version` for nvm and fnm; 22 or newer works), pnpm 10, Docker.
 
 ```sh
 docker compose up -d --wait       # PostgreSQL 16 and Redis 7, waits for health checks
