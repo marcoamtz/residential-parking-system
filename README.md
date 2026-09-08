@@ -4,6 +4,21 @@ Parking spot allocation for a residential building. Residents register for a qua
 
 This repository is a prototype built to demonstrate architecture, planning, and team leadership rather than a finished product. The brief's emphasis is on senior-level thinking, so the documentation carries as much weight as the code.
 
+## Stack at a glance
+
+| Layer | Choice |
+| --- | --- |
+| Language and tooling | TypeScript (strict), pnpm workspace, Turborepo, Biome, Vitest |
+| Domain | Pure allocation engine, no I/O, unit-tested in isolation |
+| API | Hono on Node.js LTS, Zod validation, typed client shared with the web app |
+| Data | PostgreSQL 16 with Drizzle ORM; invariants as constraints, migrations in the repo |
+| Cache | Redis 7, cache-aside keyed by a per-building version |
+| Web | React 19 with Vite, TanStack Query, Tailwind CSS |
+| Auth | JWT session in an HttpOnly cookie, role middleware, mock login in development |
+| Infrastructure | Docker Compose locally, GitHub Actions CI against real PostgreSQL and Redis |
+
+Why each was chosen, and what was rejected: [docs/05-tools-and-strategies.md](docs/05-tools-and-strategies.md) and the [decision records](docs/adr/README.md).
+
 ## Where to start
 
 | If you want to | Read |
