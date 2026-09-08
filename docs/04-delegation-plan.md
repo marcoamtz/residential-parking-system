@@ -16,7 +16,7 @@ The prototype was built in the order below. Status reflects what exists on `main
 | Admin routes (cycles, spots) | Delegable | Schema, auth | CRUD with building scoping; 409 on partial unique violation | Done |
 | Cache adapter (`apps/api/src/cache.ts`) | Delegable | Nothing | `Cache` interface, Redis and null implementations, degrade on failure | Done |
 | Web: sign-in and resident view | Delegable | API types (or mocks) | Status, register, history; keyboard reachable; error states | Done |
-| Web: admin view | Delegable | API types (or mocks) | Cycles, two-step draw confirm, results with seed, spots | Done |
+| Web: admin view | Delegable | API types (or mocks) | Cycles, draw confirmation dialog, results with seed, spots | Done |
 | Seed fixture | Delegable | Draw service | Two drawn quarters through the real service, one open | Done |
 | CI | Delegable | Nothing | Lint, typecheck, migrate, test against services, build | Done |
 | Documentation | Me, with review from the team | Everything | Another engineer can run, extend, and explain the system | This folder |

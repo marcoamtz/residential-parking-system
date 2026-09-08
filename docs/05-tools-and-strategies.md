@@ -12,7 +12,7 @@ Stack rationale in full lives in the ADRs. This document summarizes the choices,
 | API | Hono on Node.js LTS | Web-standard request/response, small, typed client for the first-party web app | [ADR-0006](adr/0006-hono-api-with-shared-types.md) |
 | Validation | Zod | One schema validates the request and types the handler and the client | [ADR-0006](adr/0006-hono-api-with-shared-types.md) |
 | Cache | Redis 7 | Version-keyed cache-aside; future queue for camera events | [ADR-0005](adr/0005-redis-cache-aside-with-version-key.md) |
-| Web | React 19 + Vite, TanStack Query, Tailwind CSS | Authenticated portal, no SEO, server state handled declaratively | [ADR-0010](adr/0010-react-vite-spa.md) |
+| Web | React 19 + Vite, TanStack Query, shadcn/ui + Tailwind CSS | Authenticated portal, no SEO, server state handled declaratively; owned components on Radix primitives | [ADR-0010](adr/0010-react-vite-spa.md), [ADR-0011](adr/0011-shadcn-ui-from-the-start.md) |
 | Sessions | JWT in HttpOnly cookie | Stateless API; browser cannot read the token | [ADR-0008](adr/0008-mock-auth-jwt-cookie-rbac.md) |
 
 ### Development tooling

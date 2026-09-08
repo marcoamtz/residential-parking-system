@@ -57,7 +57,7 @@ This task is intentionally unimplemented. It touches one route, one query, one c
 3. If the building has no open cycle, it returns `409` with code `no_open_cycle`.
 4. Registrations in drawn cycles can never be removed. The route only ever targets the open cycle, so this is guaranteed by construction; a test proves it.
 5. After a successful withdraw, `GET /api/resident/status` shows `upcoming.registered: false` immediately, not after the cache TTL.
-6. The resident view shows a "Withdraw" button next to the "Registered" badge, with the same inline confirm pattern the admin draw uses.
+6. The resident view shows a "Withdraw" button next to the "Registered" badge, using the same `AlertDialog` confirmation the admin draw uses.
 
 **API contract.**
 ```

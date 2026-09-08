@@ -13,7 +13,7 @@ This repository is a prototype built to demonstrate architecture, planning, and 
 | API | Hono on Node.js LTS, Zod validation, typed client shared with the web app |
 | Data | PostgreSQL 16 with Drizzle ORM; invariants as constraints, migrations in the repo |
 | Cache | Redis 7, cache-aside keyed by a per-building version |
-| Web | React 19 with Vite, TanStack Query, Tailwind CSS |
+| Web | React 19 with Vite, TanStack Query, shadcn/ui on Radix primitives, Tailwind CSS |
 | Auth | JWT session in an HttpOnly cookie, role middleware, mock login in development |
 | Infrastructure | Docker Compose locally, GitHub Actions CI against real PostgreSQL and Redis |
 
