@@ -16,3 +16,4 @@ A record is never edited once accepted. If a decision changes, a new record supe
 | [0008](0008-mock-auth-jwt-cookie-rbac.md) | Mock authentication with JWT cookie and role checks | Accepted |
 | [0009](0009-lpr-as-async-event-subsystem.md) | License plate recognition as an asynchronous event subsystem | Accepted |
 | [0010](0010-react-vite-spa.md) | React single-page app built with Vite | Accepted |
+| [0011](0011-owned-tailwind-components-defer-shadcn.md) | Owned Tailwind components now, shadcn/ui when a composite widget needs it | Accepted |
