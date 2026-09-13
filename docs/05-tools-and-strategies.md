@@ -21,7 +21,7 @@ Stack rationale in full lives in the ADRs. This document summarizes the choices,
 | --- | --- |
 | TypeScript strict mode with `noUncheckedIndexedAccess` | Array access and optional data are checked at compile time; the codebase has no non-null assertions. |
 | Biome | One tool for lint and format, fast enough to run on every save and in CI. |
-| Vitest | Same runner for pure domain tests and PostgreSQL-backed integration tests. |
+| Vitest | Same runner for pure domain tests, PostgreSQL-backed integration tests, and React component tests (Testing Library on jsdom). |
 | Docker Compose | PostgreSQL and Redis locally with health checks; the same images CI uses as services. |
 | `tsx` | Runs TypeScript directly in development and for scripts (migrate, seed). |
 | `tsup` | Bundles the API and its workspace packages into one artifact for the container image. |
