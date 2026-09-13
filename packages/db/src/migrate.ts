@@ -8,10 +8,14 @@ import { createDb } from "./index";
 const connectionString =
   process.env.DATABASE_URL ?? "postgres://parking:parking@localhost:5432/parking";
 
+/** Defaults to packages/db/drizzle from source, or /app/drizzle next to dist/ in the container image. */
+const migrationsFolder =
+  process.env.MIGRATIONS_DIR ?? new URL("../drizzle", import.meta.url).pathname;
+
 const { db, pool } = createDb(connectionString);
 
 try {
-  await migrate(db, { migrationsFolder: new URL("../drizzle", import.meta.url).pathname });
+  await migrate(db, { migrationsFolder });
   console.log("migrations applied");
 } finally {
   await pool.end();

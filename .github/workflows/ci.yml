@@ -63,3 +63,14 @@ jobs:
       - run: pnpm db:migrate
       - run: pnpm test
       - run: pnpm build
+
+  images:
+    name: Build ${{ matrix.app }} image
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        app: [api, web]
+    steps:
+      - uses: actions/checkout@v4
+      # Builds only; nothing is pushed. Proves the Dockerfiles stay in step with the workspace.
+      - run: docker build -f apps/${{ matrix.app }}/Dockerfile -t parking-${{ matrix.app }}:ci .
