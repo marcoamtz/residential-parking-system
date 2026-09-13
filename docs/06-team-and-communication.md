@@ -24,7 +24,7 @@ Async first: questions go in writing with enough context to be answered without 
 
 ## Code review
 
-- Every change lands through a pull request with at least one approval. `main` is protected and continuously deployable.
+- Every change lands through a pull request, including my own; the pull request is the review record even when I am the only engineer. `main` stays continuously deployable. Branch protection rules are turned on as soon as the repository plan allows them; a private repository on the free plan does not, so the rule is enforced by habit and by CI until then.
 - **Size.** Soft limit of 400 changed lines, excluding lockfiles and generated migrations. Above that, the author splits the work or explains in the description why it cannot be split. Small pull requests get reviewed the same day; large ones wait, which is the incentive.
 - **Who reviews what.** I review anything touching `packages/db` (schema, migrations), the draw transaction, authentication and authorization, and external contracts. Everything else is reviewed by a peer; I am not a bottleneck on web views or fixtures.
 - **Turnaround.** First response within one working day. A review that will take longer says so.
