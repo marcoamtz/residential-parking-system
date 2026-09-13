@@ -15,7 +15,8 @@
     "format": "biome format --write .",
     "db:generate": "pnpm --filter @parking/db generate",
     "db:migrate": "pnpm --filter @parking/db migrate",
-    "db:seed": "pnpm --filter @parking/api seed"
+    "db:seed": "pnpm --filter @parking/api seed",
+    "scheduler": "pnpm --filter @parking/api scheduler"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.12",

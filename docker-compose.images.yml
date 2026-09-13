@@ -25,6 +25,25 @@ services:
       redis:
         condition: service_healthy
 
+  # Same image as the API, different entrypoint: the quarterly rotation worker (ADR-0012).
+  scheduler:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    command: ["node", "dist/scheduler.js"]
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgres://parking:parking@postgres:5432/parking
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: local-images-only-secret-change-me
+      ROTATION_CRON: "0 6 * * *"
+      DRAW_LEAD_DAYS: "7"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
   web:
     build:
       context: .

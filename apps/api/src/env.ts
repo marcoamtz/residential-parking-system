@@ -8,6 +8,10 @@ const schema = z.object({
   JWT_SECRET: z.string().min(16, "JWT_SECRET must be at least 16 characters").optional(),
   /** Enables the password-less development login. Defaults to on outside production. */
   MOCK_AUTH: z.enum(["true", "false"]).optional(),
+  /** Cron pattern (UTC) for the rotation worker's repeatable job. Daily at 06:00 by default. */
+  ROTATION_CRON: z.string().min(9).default("0 6 * * *"),
+  /** Draw an open cycle this many days before it starts. */
+  DRAW_LEAD_DAYS: z.coerce.number().int().min(0).max(90).default(7),
 });
 
 /** Match docker-compose.yml so a fresh checkout runs with no .env file. Never used in production. */

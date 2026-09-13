@@ -8,6 +8,7 @@ import { defineConfig } from "tsup";
 export default defineConfig({
   entry: {
     index: "src/index.ts",
+    scheduler: "src/scheduler/index.ts",
     migrate: "../../packages/db/src/migrate.ts",
   },
   format: ["esm"],
@@ -18,6 +19,7 @@ export default defineConfig({
   external: ["pg-native"],
   banner: {
     // ESM bundles of CommonJS packages (pg, ioredis) expect `require` to exist.
-    js: 'import { createRequire } from "node:module"; const require = createRequire(import.meta.url);',
+    // Aliased so it cannot collide with a bundled dependency's own `createRequire` import.
+    js: 'import { createRequire as __bundleCreateRequire } from "node:module"; const require = __bundleCreateRequire(import.meta.url);',
   },
 });

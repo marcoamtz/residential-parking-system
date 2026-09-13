@@ -12,13 +12,15 @@
     "start": "node dist/index.js",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --passWithNoTests",
-    "seed": "tsx src/seed.ts"
+    "seed": "tsx src/seed.ts",
+    "scheduler": "tsx src/scheduler/index.ts"
   },
   "dependencies": {
     "@hono/node-server": "^2.1.1",
     "@hono/zod-validator": "^0.9.1",
     "@parking/db": "workspace:*",
     "@parking/domain": "workspace:*",
+    "bullmq": "^6.3.4",
     "drizzle-orm": "^0.45.2",
     "hono": "^4.13.7",
     "ioredis": "^6.0.0",
