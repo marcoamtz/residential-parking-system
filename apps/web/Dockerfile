@@ -20,6 +20,8 @@ WORKDIR /repo
 COPY --from=pruner /repo/out/json/ .
 COPY --from=pruner /repo/out/pnpm-lock.yaml ./pnpm-lock.yaml
 COPY --from=pruner /repo/out/pnpm-workspace.yaml ./pnpm-workspace.yaml
+# The root prepare script (git hooks) must exist for install; it is a no-op without a .git directory.
+COPY scripts ./scripts
 RUN pnpm install --frozen-lockfile
 COPY --from=pruner /repo/out/full/ .
 # turbo prune copies package manifests only; shared root config is added explicitly.
