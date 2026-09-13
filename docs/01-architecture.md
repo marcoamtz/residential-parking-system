@@ -20,12 +20,20 @@ flowchart LR
     routes --> cache
   end
 
+  subgraph sched ["apps/api scheduler (same image, node dist/scheduler.js)"]
+    worker["Rotation worker<br/>BullMQ repeatable job"]
+    policy["packages/domain<br/>planRotation (pure)"]
+    worker --> policy
+  end
+
   pg[("PostgreSQL 16<br/>source of truth")]
-  redis[("Redis 7<br/>read cache · future queue")]
+  redis[("Redis 7<br/>read cache · job schedule · future queue")]
 
   web -- "HTTPS JSON<br/>cookie session" --> routes
   db --> pg
   cache --> redis
+  worker -- "runDraw / createCycle" --> db
+  worker -- "repeatable job" --> redis
 
   subgraph future ["Future: license plate recognition (ADR-0009)"]
     cam["Edge worker<br/>camera + inference"]
@@ -38,7 +46,7 @@ flowchart LR
   end
 ```
 
-Solid lines exist in the prototype. Dashed lines are the documented extension path; nothing in the current code depends on them.
+Solid lines exist in the prototype. Dashed lines are the documented extension path; nothing in the current code depends on them. The rotation worker is the same container image as the API with a different entrypoint; it reuses the API's draw and cycle services, so a scheduled draw and a manual one are the same code path ([ADR-0012](adr/0012-rotation-worker-with-bullmq.md)).
 
 ### The most common request: a resident opens their status page
 
@@ -99,7 +107,7 @@ The cache call happens after `COMMIT`. No network round trip to Redis occurs whi
 | --- | --- | --- | --- |
 | `packages/domain` | The ranking rule and the draw as a pure function. Shared domain types. | Nothing from the workspace. No Node or browser APIs. | `db`, `api`, `web` |
 | `packages/db` | Drizzle schema, constraints, migrations, client factory, migrator script. | `drizzle-orm`, `pg` | `domain`, `api`, `web` |
-| `apps/api` | HTTP routes, session, authorization, cache, the draw transaction, seed fixture. | `domain`, `db` | `web` |
+| `apps/api` | HTTP routes, session, authorization, cache, the draw transaction, seed fixture, and the rotation worker entrypoint (`src/scheduler`). | `domain`, `db` | `web` |
 | `apps/web` | React client. | The API's exported route type only (`import type { AppType }`). | Anything at runtime from `api`, `db`, or `domain` |
 
 These rules are enforced by `package.json` dependencies under pnpm's strict resolution: a package cannot import what it does not declare. The web app declares `@parking/api` for its types and gets compile-time checking of every request and response ([ADR-0006](adr/0006-hono-api-with-shared-types.md)).
@@ -127,6 +135,48 @@ Draw volume never needs to scale: four draws per building per year is not a thro
 Row-Level Security is the single most valuable hardening step and is deferred, not skipped: at one building it adds policy management without protecting anything the `building_id` scoping does not already protect.
 
 ## Deployment
+
+### Reference deployment
+
+```mermaid
+flowchart TB
+  user(["Resident / administrator<br/>browser"])
+  subgraph edge ["Edge"]
+    cf["CloudFront<br/>static web (S3 origin)"]
+    alb["Application Load Balancer<br/>TLS · target health on /api/ready"]
+  end
+  subgraph vpc ["VPC, private subnets"]
+    subgraph ecs ["ECS Fargate"]
+      api1["API task"]
+      api2["API task"]
+      wk["Rotation worker task<br/>(one)"]
+    end
+    rds[("RDS PostgreSQL 16<br/>Multi-AZ, PITR, encrypted")]
+    ec[("ElastiCache Redis<br/>cache + job schedule")]
+    mig["One-off migrate task<br/>(release step)"]
+  end
+  sm["Secrets Manager<br/>DATABASE_URL · REDIS_URL · JWT_SECRET"]
+  prom["Prometheus / CloudWatch<br/>scrapes /api/metrics inside the VPC"]
+
+  user --> cf
+  user -- "/api/*" --> alb
+  alb --> api1
+  alb --> api2
+  api1 --> rds
+  api2 --> rds
+  api1 --> ec
+  api2 --> ec
+  wk --> rds
+  wk --> ec
+  mig --> rds
+  sm -.-> api1
+  sm -.-> api2
+  sm -.-> wk
+  prom -.-> api1
+  prom -.-> api2
+```
+
+One API image serves three roles: API tasks, the single worker task, and the one-off migration task. Nothing in the VPC is reachable from the internet except through the load balancer, and `/api/metrics` is not routed by it.
 
 ### Local prototype versus reference cloud topology
 

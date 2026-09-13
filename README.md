@@ -25,6 +25,7 @@ Why each was chosen, and what was rejected: [docs/05-tools-and-strategies.md](do
 | If you want to | Read |
 | --- | --- |
 | Understand what is built and what is only documented | [docs/00-prototype-scope.md](docs/00-prototype-scope.md) |
+| Check every requirement of the brief against the repository | [docs/07-brief-coverage.md](docs/07-brief-coverage.md) |
 | See the system shape and how it scales | [docs/01-architecture.md](docs/01-architecture.md) |
 | Understand the fairness rule and data model | [docs/02-domain-and-fairness.md](docs/02-domain-and-fairness.md), [ADR-0003](docs/adr/0003-fairness-ranking-rule.md) |
 | Call or extend the API | [docs/03-api.md](docs/03-api.md) |
@@ -108,7 +109,7 @@ Boundaries are enforced by package dependencies: `domain` imports nothing from t
 
 ## Status
 
-Prototype in progress. Decisions are recorded in `docs/adr`; the scope table in `docs/00-prototype-scope.md` lists what is built versus documented.
+Prototype complete for the assessment scope. Decisions are recorded in `docs/adr`; `docs/00-prototype-scope.md` lists what is built versus documented, and `docs/07-brief-coverage.md` checks every requirement of the brief. Open work is tracked in GitHub issues.
 
 ## License
 

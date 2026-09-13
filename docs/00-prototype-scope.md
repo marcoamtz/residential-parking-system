@@ -23,8 +23,8 @@ The brief is explicit: the emphasis is on senior-level thinking, not on deliveri
 | License plate recognition | Event contract, ingestion boundary, and delegation plan in [ADR-0009](adr/0009-lpr-as-async-event-subsystem.md) and [04-delegation-plan.md](04-delegation-plan.md). |
 | Real identity provider | Swap path from mock auth to OIDC in [ADR-0008](adr/0008-mock-auth-jwt-cookie-rbac.md). |
 | Multi-building isolation | `building_id` on every tenant-owned table from day one; Row-Level Security as the hardening step in [01-architecture.md](01-architecture.md). |
-| Cloud deployment | Container images and a reference topology in [01-architecture.md](01-architecture.md); no live environment. |
-| Connection pooling, observability, load balancing | [05-tools-and-strategies.md](05-tools-and-strategies.md). |
+| Cloud deployment | Container images and a compose rehearsal are built; the reference AWS topology and deployment diagram are in [01-architecture.md](01-architecture.md). There is no live environment. |
+| Connection pooling, load balancing, error tracking | [05-tools-and-strategies.md](05-tools-and-strategies.md). Logs, metrics, and readiness are built. |
 | Spot preferences and accessibility needs | Out of scope for the draw. Flagged as the first fairness extension in [02-domain-and-fairness.md](02-domain-and-fairness.md). |
 
 ## How this maps to the brief
@@ -36,3 +36,5 @@ The brief is explicit: the emphasis is on senior-level thinking, not on deliveri
 | 3. Tools and strategies | [05-tools-and-strategies.md](05-tools-and-strategies.md) |
 | 4. Documentation and communication | [06-team-and-communication.md](06-team-and-communication.md), this docs folder |
 | 5. Core codebase prototype | `packages/domain`, `packages/db`, `apps/api`, `apps/web` |
+
+A line-by-line check of every requirement in the brief, with the evidence for each, is in [07-brief-coverage.md](07-brief-coverage.md).
