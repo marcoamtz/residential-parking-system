@@ -68,7 +68,7 @@ Development login is password-less (see [ADR-0008](docs/adr/0008-mock-auth-jwt-c
 
 The fixture is deterministic: seeds and ids are pinned, so every machine gets the same history. Running the draw on cycle 3 as the administrator always allocates units 203, 102, 103, and 202 (only the order among the last three depends on the random seed) and leaves 101 and 302 without a spot, because they hold one this quarter.
 
-Quality gates, also run in CI:
+Quality gates, also run in CI. `pnpm install` also installs Git hooks (lefthook) that run Biome on staged files, check the commit message format, and run typecheck plus the database-free tests before push:
 
 ```sh
 pnpm lint

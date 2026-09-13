@@ -1,0 +1,25 @@
+# Git hooks, installed by `pnpm install` through the root `prepare` script (lefthook install).
+# Skip once with LEFTHOOK=0 <git command>. CI enforces the same gates, so a skipped hook is
+# never a way around them; the hooks exist to fail fast and keep pull requests small and clean.
+
+pre-commit:
+  parallel: true
+  commands:
+    biome:
+      # Lint and format only the staged files, write fixes, and re-stage them.
+      run: pnpm exec biome check --write --no-errors-on-unmatched --staged
+      stage_fixed: true
+
+commit-msg:
+  commands:
+    conventional:
+      run: node scripts/check-commit-message.mjs {1}
+
+pre-push:
+  parallel: true
+  commands:
+    typecheck:
+      run: pnpm typecheck
+    tests-without-database:
+      # Domain and web tests need no services; the PostgreSQL-backed API suite runs in CI.
+      run: pnpm --filter @parking/domain --filter @parking/web test
