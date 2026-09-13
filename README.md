@@ -73,6 +73,20 @@ pnpm test
 pnpm build
 ```
 
+## Container images
+
+Production-shaped images, built from the repository root with the workspace pruned to each app:
+
+```sh
+docker compose -f docker-compose.yml -f docker-compose.images.yml up -d --build
+docker compose -f docker-compose.yml -f docker-compose.images.yml run --rm api node dist/migrate.js
+open http://localhost:8080
+```
+
+- `apps/api/Dockerfile`: multi-stage; `turbo prune` → install → `tsup` single-file bundle. Runtime is `node:24-alpine`, non-root, with `dist/` and the migration SQL only. Migrations run as a one-off task, never at startup.
+- `apps/web/Dockerfile`: static build served by `nginx:1.27-alpine`, proxying `/api/` to `API_UPSTREAM` so the session cookie stays first-party.
+- `docker-compose.images.yml`: local rehearsal of the reference topology in [docs/01-architecture.md](docs/01-architecture.md). Placeholder secrets, no TLS.
+
 ## Repository layout
 
 ```
