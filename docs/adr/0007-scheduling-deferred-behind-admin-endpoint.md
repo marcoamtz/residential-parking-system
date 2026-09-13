@@ -1,6 +1,6 @@
 # ADR-0007: Scheduling deferred behind an admin endpoint
 
-Status: Accepted, 2026-09-06
+Status: Superseded by [ADR-0012](0012-rotation-worker-with-bullmq.md) on 2026-09-13. Accepted 2026-09-06.
 
 ## Context
 

@@ -13,13 +13,13 @@ The brief is explicit: the emphasis is on senior-level thinking, not on deliveri
 | Typed API | Hono with end-to-end request/response types shared with the web app ([ADR-0006](adr/0006-hono-api-with-shared-types.md)). |
 | Mock authentication and roles | Seeded users, JWT in an HttpOnly cookie, resident and admin roles ([ADR-0008](adr/0008-mock-auth-jwt-cookie-rbac.md)). |
 | Minimal web UI | One resident page (status, next cycle, register) and one admin page (run draw, view results) ([ADR-0010](adr/0010-react-vite-spa.md)). |
-| Local infrastructure | Docker Compose for PostgreSQL and Redis. CI runs lint, typecheck, and tests. |
+| Quarterly rotation worker | A BullMQ repeatable job draws each open cycle a week before it starts and opens the next quarter in the same run; `--once` mode for platform cron ([ADR-0012](adr/0012-rotation-worker-with-bullmq.md)). |
+| Local infrastructure | Docker Compose for PostgreSQL and Redis. Container images for API, worker, and web. CI runs lint, typecheck, tests, and image builds. |
 
 ## What is documented but not built
 
 | Area | Where it is covered |
 | --- | --- |
-| Scheduled quarterly draws | Admin-triggered endpoint now; scheduler options and the chosen seam in [ADR-0007](adr/0007-scheduling-deferred-behind-admin-endpoint.md). |
 | License plate recognition | Event contract, ingestion boundary, and delegation plan in [ADR-0009](adr/0009-lpr-as-async-event-subsystem.md) and [04-delegation-plan.md](04-delegation-plan.md). |
 | Real identity provider | Swap path from mock auth to OIDC in [ADR-0008](adr/0008-mock-auth-jwt-cookie-rbac.md). |
 | Multi-building isolation | `building_id` on every tenant-owned table from day one; Row-Level Security as the hardening step in [01-architecture.md](01-architecture.md). |

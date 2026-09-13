@@ -12,7 +12,7 @@ This repository is a prototype built to demonstrate architecture, planning, and 
 | Domain | Pure allocation engine, no I/O, unit-tested in isolation |
 | API | Hono on Node.js LTS, Zod validation, typed client shared with the web app |
 | Data | PostgreSQL 16 with Drizzle ORM; invariants as constraints, migrations in the repo |
-| Cache | Redis 7, cache-aside keyed by a per-building version |
+| Cache and jobs | Redis 7: cache-aside keyed by a per-building version; BullMQ repeatable job runs the quarterly rotation |
 | Web | React 19 with Vite, TanStack Query, shadcn/ui on Radix primitives, Tailwind CSS |
 | Auth | JWT session in an HttpOnly cookie, role middleware, mock login in development |
 | Infrastructure | Docker Compose locally, GitHub Actions CI against real PostgreSQL and Redis |
@@ -43,7 +43,10 @@ pnpm db:migrate                   # apply the schema
 pnpm db:seed                      # one building, 12 residents, two drawn quarters, one open
 pnpm test                         # domain unit tests and PostgreSQL-backed integration tests
 pnpm dev                          # API on http://localhost:3000, web on http://localhost:5173
+pnpm scheduler --once             # optional: today's rotation check (draw due cycles, open the next quarter)
 ```
+
+`pnpm scheduler` without `--once` runs the long-lived worker that does the same check daily at 06:00 UTC ([ADR-0012](docs/adr/0012-rotation-worker-with-bullmq.md)).
 
 No `.env` file is needed for local development: the API falls back to the Docker Compose connection strings and a development-only JWT secret. To override anything, `cp .env.example .env` and edit. In production every variable in `.env.example` is required and the API refuses to start without them.
 
@@ -83,7 +86,7 @@ docker compose -f docker-compose.yml -f docker-compose.images.yml run --rm api n
 open http://localhost:8080
 ```
 
-- `apps/api/Dockerfile`: multi-stage; `turbo prune` → install → `tsup` single-file bundle. Runtime is `node:24-alpine`, non-root, with `dist/` and the migration SQL only. Migrations run as a one-off task, never at startup.
+- `apps/api/Dockerfile`: multi-stage; `turbo prune` → install → `tsup` single-file bundles for the server, the rotation worker, and the migrator. Runtime is `node:24-alpine`, non-root, with `dist/` and the migration SQL only. Migrations run as a one-off task, never at startup. The `scheduler` service runs the same image with `node dist/scheduler.js`.
 - `apps/web/Dockerfile`: static build served by `nginx:1.27-alpine`, proxying `/api/` to `API_UPSTREAM` so the session cookie stays first-party.
 - `docker-compose.images.yml`: local rehearsal of the reference topology in [docs/01-architecture.md](docs/01-architecture.md). Placeholder secrets, no TLS.
 

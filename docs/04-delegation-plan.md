@@ -21,7 +21,7 @@ The prototype was built in the order below. Status reflects what exists on `main
 | CI | Delegable | Nothing | Lint, typecheck, migrate, test against services, build | Done |
 | Documentation | Me, with review from the team | Everything | Another engineer can run, extend, and explain the system | This folder |
 | Withdraw registration | Junior (starter task) | Resident routes | See [06-team-and-communication.md](06-team-and-communication.md) | Open, by design |
-| Scheduler | Delegable, decision mine | Deployment target | [ADR-0007](adr/0007-scheduling-deferred-behind-admin-endpoint.md) | Deferred |
+| Rotation worker (`apps/api/src/scheduler`) | Me | Draw service, Redis | Policy is a pure, unit-tested function; worker reuses the draw and cycle services; integration tests for draw-then-open and idempotency; `--once` mode ([ADR-0012](adr/0012-rotation-worker-with-bullmq.md)) | Done |
 | Identity provider | Delegable | Deployment target | OIDC callback issues the existing cookie | Deferred |
 | Row-Level Security | Me | Multi-building need | Policies per tenant table; tests that a missing `WHERE` cannot leak | Deferred |
 | License plate recognition | Split, see below | Event contract | Below | Planned |

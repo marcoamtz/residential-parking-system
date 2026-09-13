@@ -12,8 +12,9 @@ A record is never edited once accepted. If a decision changes, a new record supe
 | [0004](0004-draw-idempotency-via-cycle-state.md) | Draw idempotency via cycle state transition | Accepted |
 | [0005](0005-redis-cache-aside-with-version-key.md) | Redis cache-aside with a version key | Accepted |
 | [0006](0006-hono-api-with-shared-types.md) | Hono API with shared request/response types | Accepted |
-| [0007](0007-scheduling-deferred-behind-admin-endpoint.md) | Scheduling deferred behind an admin endpoint | Accepted |
+| [0007](0007-scheduling-deferred-behind-admin-endpoint.md) | Scheduling deferred behind an admin endpoint | Superseded by 0012 |
 | [0008](0008-mock-auth-jwt-cookie-rbac.md) | Mock authentication with JWT cookie and role checks | Accepted |
 | [0009](0009-lpr-as-async-event-subsystem.md) | License plate recognition as an asynchronous event subsystem | Accepted |
 | [0010](0010-react-vite-spa.md) | React single-page app built with Vite | Accepted |
 | [0011](0011-shadcn-ui-from-the-start.md) | shadcn/ui on Radix primitives from the start | Accepted |
+| [0012](0012-rotation-worker-with-bullmq.md) | Quarterly rotation runs as a BullMQ repeatable job in a worker process | Accepted |

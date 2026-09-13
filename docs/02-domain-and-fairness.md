@@ -27,6 +27,8 @@ stateDiagram-v2
 
 Two states are enough. Registration is allowed while `open`. The draw flips the status and writes allocations in the same transaction, so there is never a visible intermediate state ([ADR-0004](adr/0004-draw-idempotency-via-cycle-state.md)).
 
+The rotation worker runs the same draw on a schedule: an open cycle is drawn `DRAW_LEAD_DAYS` (default 7) before it starts and the following quarter is opened in the same run, so residents know their spot a week ahead and registration never has a gap ([ADR-0012](adr/0012-rotation-worker-with-bullmq.md)). The administrator's button remains for the first cycle and for exceptions.
+
 - The **current** cycle for a resident is the drawn cycle whose period contains today. Their spot, if any, is the allocation in that cycle.
 - The **next** cycle is the building's open cycle. A partial unique index guarantees there is at most one.
 - Periods are calendar dates in UTC. Building-local time zones are a known simplification (see limits below).

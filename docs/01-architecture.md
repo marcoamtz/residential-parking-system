@@ -142,7 +142,7 @@ The prototype runs on Docker Compose. The reference topology below is the intend
 | Secrets | `.env` file (git-ignored) | Secrets Manager injected as task environment; `JWT_SECRET` rotated by redeploy |
 | Migrations | `pnpm db:migrate` by hand | One-off ECS task running the same migrator before the new API task set is promoted; a failed migration fails the deploy, not the service |
 | Identity | Password-less mock login | OIDC provider (Cognito, Auth0, or Keycloak) issuing the same session cookie ([ADR-0008](adr/0008-mock-auth-jwt-cookie-rbac.md)) |
-| Scheduler | Administrator clicks "Run draw" | Deferred decision; three options in [ADR-0007](adr/0007-scheduling-deferred-behind-admin-endpoint.md) |
+| Scheduler | `pnpm scheduler` (worker) or `pnpm scheduler --once` | Same API image with `node dist/scheduler.js` as a one-task ECS service; BullMQ repeatable job on ElastiCache. Or `--once` from EventBridge Scheduler ([ADR-0012](adr/0012-rotation-worker-with-bullmq.md)) |
 | Infrastructure as code | Docker Compose file | Terraform, one module per environment, state in S3 with locking |
 
 ### Environments
