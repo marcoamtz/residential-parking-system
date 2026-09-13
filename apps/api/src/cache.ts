@@ -1,4 +1,5 @@
 import type { Redis } from "ioredis";
+import { cacheRequests, logger } from "./observability";
 
 /**
  * Cache-aside with a per-building version key (ADR-0005). Any failure degrades to a miss:
@@ -9,6 +10,8 @@ export interface Cache {
   bump(buildingId: string): Promise<void>;
   get<T>(key: string): Promise<T | null>;
   set(key: string, value: unknown, ttlSeconds: number): Promise<void>;
+  /** Readiness probe. "unavailable" is informational, never a failure. */
+  ping(): Promise<"ok" | "unavailable">;
 }
 
 export class RedisCache implements Cache {
@@ -34,13 +37,21 @@ export class RedisCache implements Cache {
     await this.guard(() => this.redis.set(key, JSON.stringify(value), "EX", ttlSeconds));
   }
 
+  async ping(): Promise<"ok" | "unavailable"> {
+    try {
+      return (await this.redis.ping()) === "PONG" ? "ok" : "unavailable";
+    } catch {
+      return "unavailable";
+    }
+  }
+
   private async guard<T>(operation: () => Promise<T>): Promise<T | null> {
     try {
       return await operation();
     } catch (error) {
       if (!this.warned) {
         this.warned = true;
-        console.warn("cache unavailable, serving from database", error);
+        logger.warn({ err: error }, "cache unavailable, serving from database");
       }
       return null;
     }
@@ -57,6 +68,9 @@ export class NullCache implements Cache {
     return null;
   }
   async set(): Promise<void> {}
+  async ping(): Promise<"ok" | "unavailable"> {
+    return "unavailable";
+  }
 }
 
 function versionKey(buildingId: string): string {
@@ -74,6 +88,7 @@ export async function withCache<T>(
   const version = await cache.getVersion(buildingId);
   const key = `building:${buildingId}:v${version}:${name}`;
   const hit = await cache.get<T>(key);
+  cacheRequests.inc({ result: hit !== null ? "hit" : "miss" });
   if (hit !== null) return hit;
   const value = await load();
   await cache.set(key, value, ttlSeconds);

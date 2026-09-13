@@ -5,6 +5,7 @@ import { type DrawInput, type DrawResult, type Entrant, executeDraw } from "@par
 import { and, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { HttpError } from "../errors";
+import { drawDuration } from "../observability";
 
 const { raffleCycles, parkingSpots, spotAllocations, raffleDraws } = schema;
 
@@ -50,56 +51,63 @@ export async function runDraw(db: Db, params: RunDrawParams): Promise<RunDrawOut
     .limit(1);
   if (!cycle) throw new HttpError(404, "cycle_not_found", "Cycle not found");
 
-  return db.transaction(async (tx) => {
-    const claimed = await tx
-      .update(raffleCycles)
-      .set({ status: "drawn" })
-      .where(and(eq(raffleCycles.id, cycle.id), eq(raffleCycles.status, "open")))
-      .returning({ id: raffleCycles.id });
-    if (claimed.length === 0) {
-      throw new HttpError(409, "cycle_already_drawn", "This cycle has already been drawn");
-    }
+  const stopTimer = drawDuration.startTimer();
+  try {
+    return await db.transaction(async (tx) => {
+      const claimed = await tx
+        .update(raffleCycles)
+        .set({ status: "drawn" })
+        .where(and(eq(raffleCycles.id, cycle.id), eq(raffleCycles.status, "open")))
+        .returning({ id: raffleCycles.id });
+      if (claimed.length === 0) {
+        throw new HttpError(409, "cycle_already_drawn", "This cycle has already been drawn");
+      }
 
-    const entrants = await loadEntrants(tx, cycle.id, params.buildingId, cycle.sequence);
-    const spots = await tx
-      .select({ id: parkingSpots.id, label: parkingSpots.label })
-      .from(parkingSpots)
-      .where(and(eq(parkingSpots.buildingId, params.buildingId), eq(parkingSpots.isActive, true)));
+      const entrants = await loadEntrants(tx, cycle.id, params.buildingId, cycle.sequence);
+      const spots = await tx
+        .select({ id: parkingSpots.id, label: parkingSpots.label })
+        .from(parkingSpots)
+        .where(
+          and(eq(parkingSpots.buildingId, params.buildingId), eq(parkingSpots.isActive, true)),
+        );
 
-    const input: DrawInput = {
-      cycleId: cycle.id,
-      entrants,
-      spots,
-      seed: params.seed ?? randomBytes(16).toString("hex"),
-    };
-    const result: DrawResult = executeDraw(input);
+      const input: DrawInput = {
+        cycleId: cycle.id,
+        entrants,
+        spots,
+        seed: params.seed ?? randomBytes(16).toString("hex"),
+      };
+      const result: DrawResult = executeDraw(input);
 
-    if (result.allocations.length > 0) {
-      await tx.insert(spotAllocations).values(
-        result.allocations.map((a) => ({
-          cycleId: cycle.id,
-          spotId: a.spotId,
-          registrationId: a.registrationId,
-          rank: a.rank,
-        })),
-      );
-    }
+      if (result.allocations.length > 0) {
+        await tx.insert(spotAllocations).values(
+          result.allocations.map((a) => ({
+            cycleId: cycle.id,
+            spotId: a.spotId,
+            registrationId: a.registrationId,
+            rank: a.rank,
+          })),
+        );
+      }
 
-    await tx.insert(raffleDraws).values({
-      cycleId: cycle.id,
-      seed: input.seed,
-      inputSnapshot: { entrants: input.entrants, spots: input.spots },
-      executedByUserId: params.executedByUserId,
+      await tx.insert(raffleDraws).values({
+        cycleId: cycle.id,
+        seed: input.seed,
+        inputSnapshot: { entrants: input.entrants, spots: input.spots },
+        executedByUserId: params.executedByUserId,
+      });
+
+      return {
+        cycleId: cycle.id,
+        entrants: entrants.length,
+        spots: spots.length,
+        allocations: result.allocations.length,
+        seed: input.seed,
+      };
     });
-
-    return {
-      cycleId: cycle.id,
-      entrants: entrants.length,
-      spots: spots.length,
-      allocations: result.allocations.length,
-      seed: input.seed,
-    };
-  });
+  } finally {
+    stopTimer();
+  }
 }
 
 type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];

@@ -4,6 +4,7 @@ import { Redis } from "ioredis";
 import { RedisCache } from "../cache";
 import { toIsoDate } from "../deps";
 import { loadDotenv, loadEnv } from "../env";
+import { logger } from "../observability";
 import { rotateAllBuildings } from "./rotation";
 
 /**
@@ -29,9 +30,7 @@ const rotate = () => rotateAllBuildings(db, cache, toIsoDate(new Date()), env.DR
 if (once) {
   const results = await rotate();
   for (const r of results) {
-    console.log(
-      `building ${r.buildingId}: ${r.actions.length === 0 ? "no action" : JSON.stringify(r.actions)}`,
-    );
+    logger.info({ buildingId: r.buildingId, actions: r.actions }, "rotation checked");
   }
   await Promise.allSettled([pool.end(), cacheRedis.quit()]);
   process.exit(0);
@@ -48,18 +47,25 @@ await queue.upsertJobScheduler(
 const worker = new Worker("rotation", rotate, { connection });
 worker.on("completed", (job, results: Awaited<ReturnType<typeof rotate>>) => {
   const acted = results.filter((r) => r.actions.length > 0);
-  console.log(`rotation ${job.id}: ${results.length} buildings checked, ${acted.length} changed`);
-  for (const r of acted) console.log(`  building ${r.buildingId}: ${JSON.stringify(r.actions)}`);
+  logger.info(
+    {
+      jobId: job.id,
+      checked: results.length,
+      changed: acted.map((r) => ({ buildingId: r.buildingId, actions: r.actions })),
+    },
+    "rotation completed",
+  );
 });
 worker.on("failed", (job, error) => {
-  console.error(`rotation ${job?.id ?? "?"} failed`, error);
+  logger.error({ jobId: job?.id, err: error }, "rotation failed");
 });
-console.log(
-  `rotation scheduler running (cron "${env.ROTATION_CRON}" UTC, lead ${env.DRAW_LEAD_DAYS} days)`,
+logger.info(
+  { cron: env.ROTATION_CRON, leadDays: env.DRAW_LEAD_DAYS },
+  "rotation scheduler running",
 );
 
 async function shutdown(signal: string) {
-  console.log(`${signal} received, shutting down`);
+  logger.info({ signal }, "shutting down");
   await worker.close();
   await queue.close();
   await Promise.allSettled([connection.quit(), cacheRedis.quit(), pool.end()]);

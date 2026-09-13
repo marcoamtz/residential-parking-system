@@ -21,7 +21,7 @@ export interface Deps {
   now: () => Date;
 }
 
-export type AppEnv = { Variables: { user: SessionUser } };
+export type AppEnv = { Variables: { user: SessionUser; requestId: string } };
 
 /** ISO date (YYYY-MM-DD) in UTC. Building-local time zones are a documented future concern. */
 export function toIsoDate(date: Date): string {

@@ -50,4 +50,20 @@ describe("error contract", () => {
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ status: "ok" });
   });
+
+  it("reports not ready with 503 when PostgreSQL cannot be reached", async () => {
+    const res = await app.request("/api/ready");
+    expect(res.status).toBe(503);
+    expect(await res.json()).toEqual({
+      status: "unavailable",
+      checks: { postgres: "unavailable", redis: "unavailable" },
+    });
+  });
+
+  it("echoes a supplied request id and generates one otherwise", async () => {
+    const supplied = await app.request("/api/health", { headers: { "x-request-id": "abc-123" } });
+    expect(supplied.headers.get("x-request-id")).toBe("abc-123");
+    const generated = await app.request("/api/health");
+    expect(generated.headers.get("x-request-id")).toMatch(/[0-9a-f-]{20,}/);
+  });
 });

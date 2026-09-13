@@ -4,6 +4,7 @@ import { Redis } from "ioredis";
 import { createApp } from "./app";
 import { RedisCache } from "./cache";
 import { loadDotenv, loadEnv } from "./env";
+import { logger } from "./observability";
 
 loadDotenv();
 const env = loadEnv();
@@ -24,11 +25,11 @@ const app = createApp({
 });
 
 const server = serve({ fetch: app.fetch, port: env.PORT }, (info) => {
-  console.log(`api listening on http://localhost:${info.port} (mock auth: ${env.mockAuth})`);
+  logger.info({ port: info.port, mockAuth: env.mockAuth }, "api listening");
 });
 
 async function shutdown(signal: string) {
-  console.log(`${signal} received, shutting down`);
+  logger.info({ signal }, "shutting down");
   server.close();
   await Promise.allSettled([pool.end(), redis.quit()]);
   process.exit(0);

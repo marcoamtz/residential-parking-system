@@ -1,10 +1,12 @@
 import { Hono } from "hono";
-import { logger } from "hono/logger";
+import { requestId } from "hono/request-id";
 import { adminRoutes } from "./admin/routes";
 import { authRoutes } from "./auth/routes";
 import { requireCustomHeader } from "./csrf";
 import type { AppEnv, Deps } from "./deps";
 import { errorHandler } from "./errors";
+import { healthRoutes } from "./health";
+import { requestLogging } from "./observability";
 import { residentRoutes } from "./resident/routes";
 
 /**
@@ -12,14 +14,18 @@ import { residentRoutes } from "./resident/routes";
  * without importing the server entrypoint. See docs/adr/0006-hono-api-with-shared-types.md.
  */
 export function createApp(deps: Deps) {
-  return new Hono<AppEnv>()
-    .use(logger())
-    .use(requireCustomHeader)
-    .onError(errorHandler)
-    .get("/api/health", (c) => c.json({ status: "ok" as const }))
-    .route("/api/auth", authRoutes(deps))
-    .route("/api/resident", residentRoutes(deps))
-    .route("/api/admin", adminRoutes(deps));
+  return (
+    new Hono<AppEnv>()
+      // Honors an incoming X-Request-Id (from the load balancer or nginx) or generates one.
+      .use(requestId())
+      .use(requestLogging)
+      .use(requireCustomHeader)
+      .onError(errorHandler)
+      .route("/api", healthRoutes(deps))
+      .route("/api/auth", authRoutes(deps))
+      .route("/api/resident", residentRoutes(deps))
+      .route("/api/admin", adminRoutes(deps))
+  );
 }
 
 export type AppType = ReturnType<typeof createApp>;

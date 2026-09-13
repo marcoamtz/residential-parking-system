@@ -1,6 +1,8 @@
 import type { ErrorHandler } from "hono";
 import { HTTPException } from "hono/http-exception";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
+import type { AppEnv } from "./deps";
+import { logger } from "./observability";
 
 export class HttpError extends Error {
   constructor(
@@ -21,13 +23,13 @@ export function isUniqueViolation(error: unknown): boolean {
   return isUniqueViolation((error as { cause?: unknown }).cause);
 }
 
-export const errorHandler: ErrorHandler = (error, c) => {
+export const errorHandler: ErrorHandler<AppEnv> = (error, c) => {
   if (error instanceof HttpError) {
     return c.json({ code: error.code, message: error.message }, error.status);
   }
   if (error instanceof HTTPException) {
     return error.getResponse();
   }
-  console.error(error);
+  logger.error({ err: error, requestId: c.get("requestId") }, "unhandled error");
   return c.json({ code: "internal_error", message: "Unexpected error" }, 500);
 };
