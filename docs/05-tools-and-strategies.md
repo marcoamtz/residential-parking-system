@@ -89,9 +89,10 @@ Stack rationale in full lives in the ADRs. This document summarizes the choices,
 
 ## Reliability and observability
 
-- **Health.** `/api/health` for the load balancer. A deeper readiness check that pings PostgreSQL is the first addition before production.
-- **Logs.** Structured JSON with a request id, emitted to stdout and shipped by the platform. No personal data.
-- **Metrics to add first.** Request latency by route, cache hit rate, draw duration, 4xx/5xx rates. Error tracking with stack traces on 5xx.
+- **Health and readiness.** `/api/health` is liveness and never touches a dependency; container health checks use it. `/api/ready` runs `select 1` against PostgreSQL and returns `503` if it fails; Redis is reported but never fatal. Load balancers route on readiness.
+- **Logs.** `pino` JSON to stdout, shipped by the platform. One line per request with the request id (`X-Request-Id`, honored from nginx or the load balancer, generated otherwise), method, matched route, status, and duration. Bodies, query strings, and cookies are never logged, so resident data cannot leak through logs. Unhandled errors log the stack with the request id.
+- **Metrics.** Prometheus text at `/api/metrics` via `prom-client`: `http_requests_total` and `http_request_duration_seconds` labelled by method and matched route pattern (bounded cardinality), `cache_requests_total{result=hit|miss}` for the cache-aside path, `draw_duration_seconds` around the draw transaction, plus Node.js process defaults. The endpoint is scraped inside the network and not exposed through the load balancer.
+- **Next.** Error tracking with alerting on 5xx rate, and OpenTelemetry traces if the camera subsystem makes the request path multi-hop. Prometheus metrics were chosen first because they answer the two operational questions this system has (is the cache working, how long do draws take) with no collector to run.
 - **Backups and drills.** Automated RDS snapshots plus point-in-time recovery. A restore drill into staging once per quarter, timed to the cycle boundary when a restore would matter most.
 - **What is lost if Redis is lost.** Nothing. Cached reads rebuild from PostgreSQL; the API logs one warning and continues. When the camera queue exists, events in flight would be lost, so that queue will need Redis persistence or a durable broker. That choice is deferred to the license plate work ([ADR-0009](adr/0009-lpr-as-async-event-subsystem.md)).
 - **Migrations.** Applied as a release step by a one-off task, never at API startup. A failing migration fails the deploy and leaves the running version untouched.

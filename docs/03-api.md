@@ -13,11 +13,15 @@ Base path `/api`. JSON in and out. Route definitions in `apps/api/src` are the s
 
 ## Endpoints
 
-### Health
+### Health and operations
 
 | Method | Path | Notes |
 | --- | --- | --- |
-| GET | `/api/health` | Liveness for the load balancer. No auth. |
+| GET | `/api/health` | Liveness: the process is up. Never touches a dependency. Container health checks use this. No auth. |
+| GET | `/api/ready` | Readiness: `200` when PostgreSQL answers `select 1`, `503` otherwise. Redis is reported in `checks` but never fatal (the cache is not required for correctness). Load balancers route on this. No auth. |
+| GET | `/api/metrics` | Prometheus text format: `http_requests_total`, `http_request_duration_seconds` (by method and matched route), `cache_requests_total{result}`, `draw_duration_seconds`, Node.js defaults. Scraped inside the network; not routed by the load balancer. |
+
+Every response carries `X-Request-Id`, taken from the incoming header when a proxy sets one (nginx and the load balancer do) or generated. Each request produces one JSON log line with that id, method, matched route, status, and duration; never a body, query string, or cookie.
 
 ### Auth
 

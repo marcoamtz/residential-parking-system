@@ -15,7 +15,8 @@ This repository is a prototype built to demonstrate architecture, planning, and 
 | Cache and jobs | Redis 7: cache-aside keyed by a per-building version; BullMQ repeatable job runs the quarterly rotation |
 | Web | React 19 with Vite, TanStack Query, shadcn/ui on Radix primitives, Tailwind CSS |
 | Auth | JWT session in an HttpOnly cookie, role middleware, mock login in development |
-| Infrastructure | Docker Compose locally, GitHub Actions CI against real PostgreSQL and Redis |
+| Observability | `pino` JSON logs with request ids, Prometheus metrics at `/api/metrics`, liveness and readiness endpoints |
+| Infrastructure | Docker Compose locally, container images for API, worker, and web, GitHub Actions CI against real PostgreSQL and Redis |
 
 Why each was chosen, and what was rejected: [docs/05-tools-and-strategies.md](docs/05-tools-and-strategies.md) and the [decision records](docs/adr/README.md).
 
