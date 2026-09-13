@@ -25,6 +25,7 @@ const upcoming: NonNullable<ResidentStatus["upcoming"]> = {
 const base: ResidentStatus = {
   resident: { id: "r1", unit: "104", fullName: "Diego Salas" },
   current: { cycleSequence: 2, startsOn: "2026-07-01", endsOn: "2026-09-30", spotLabel: "P3" },
+  next: null,
   upcoming,
   history: [
     {
@@ -68,6 +69,40 @@ describe("ResidentView", () => {
     expect(mocked.register).toHaveBeenCalledTimes(1);
     expect(await screen.findByText("Registered")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Register for this draw" })).toBeNull();
+  });
+
+  it("shows the next quarter's result when the draw has run ahead of its start", async () => {
+    mocked.status.mockResolvedValue({
+      ...base,
+      next: {
+        cycleSequence: 3,
+        startsOn: "2026-10-01",
+        endsOn: "2026-12-31",
+        outcome: "allocated",
+        spotLabel: "P1",
+      },
+    });
+    renderWithQuery(<ResidentView />);
+
+    expect(await screen.findByRole("heading", { name: "Next quarter" })).toBeInTheDocument();
+    expect(screen.getByText("Spot P1", { selector: "p" })).toBeInTheDocument();
+  });
+
+  it("tells a resident who lost the next draw why that helps them later", async () => {
+    mocked.status.mockResolvedValue({
+      ...base,
+      next: {
+        cycleSequence: 3,
+        startsOn: "2026-10-01",
+        endsOn: "2026-12-31",
+        outcome: "not_allocated",
+        spotLabel: null,
+      },
+    });
+    renderWithQuery(<ResidentView />);
+
+    expect(await screen.findByText("No spot next quarter")).toBeInTheDocument();
+    expect(screen.getByText(/moves you up in the following draw/)).toBeInTheDocument();
   });
 
   it("explains the no-spot state and offers no registration when no cycle is open", async () => {

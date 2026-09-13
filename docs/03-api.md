@@ -36,7 +36,7 @@ Every response carries `X-Request-Id`, taken from the incoming header when a pro
 
 | Method | Path | Notes |
 | --- | --- | --- |
-| GET | `/api/resident/status` | Current allocation (cycle covering today), the open cycle and whether the resident is registered, and the resident's history in drawn cycles. Cached, see below. |
+| GET | `/api/resident/status` | `current`: allocation in the cycle covering today. `next`: result of the next drawn cycle that has not started yet (`allocated`, `not_allocated`, or `not_entered`), present during the week between the scheduled draw and the quarter start. `upcoming`: the open cycle and whether the resident is registered. `history`: every drawn cycle the resident entered. Cached, see below. |
 | POST | `/api/resident/register` | Registers for the building's open cycle. `201`. `409 no_open_cycle` or `409 already_registered`. `403 resident_inactive` after move-out. |
 
 Withdrawing a registration is intentionally not implemented. It is the documented starter task for onboarding ([06-team-and-communication.md](06-team-and-communication.md)).

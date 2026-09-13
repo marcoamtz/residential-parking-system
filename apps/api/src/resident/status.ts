@@ -1,6 +1,6 @@
 import type { Db } from "@parking/db";
 import { schema } from "@parking/db";
-import { and, desc, eq, gte, isNull, lte } from "drizzle-orm";
+import { and, asc, desc, eq, gt, gte, isNull, lte } from "drizzle-orm";
 import { HttpError, isUniqueViolation } from "../errors";
 
 const { raffleCycles, raffleRegistrations, spotAllocations, parkingSpots, residents } = schema;
@@ -9,6 +9,17 @@ export interface ResidentStatus {
   resident: { id: string; unit: string; fullName: string };
   /** Allocation whose cycle covers today. */
   current: { cycleSequence: number; startsOn: string; endsOn: string; spotLabel: string } | null;
+  /**
+   * Result of the next drawn cycle that has not started yet. The rotation worker draws a week
+   * ahead, so this is what "your next allocation" means during that week.
+   */
+  next: {
+    cycleSequence: number;
+    startsOn: string;
+    endsOn: string;
+    outcome: "allocated" | "not_allocated" | "not_entered";
+    spotLabel: string | null;
+  } | null;
   /** Cycle accepting registrations, if any. */
   upcoming: {
     cycleId: string;
@@ -61,6 +72,34 @@ export async function getResidentStatus(
     )
     .limit(1);
 
+  const [nextDrawn] = await db
+    .select({
+      cycleSequence: raffleCycles.sequence,
+      startsOn: raffleCycles.startsOn,
+      endsOn: raffleCycles.endsOn,
+      registrationId: raffleRegistrations.id,
+      spotLabel: parkingSpots.label,
+    })
+    .from(raffleCycles)
+    .leftJoin(
+      raffleRegistrations,
+      and(
+        eq(raffleRegistrations.cycleId, raffleCycles.id),
+        eq(raffleRegistrations.residentId, residentId),
+      ),
+    )
+    .leftJoin(spotAllocations, eq(spotAllocations.registrationId, raffleRegistrations.id))
+    .leftJoin(parkingSpots, eq(parkingSpots.id, spotAllocations.spotId))
+    .where(
+      and(
+        eq(raffleCycles.buildingId, buildingId),
+        eq(raffleCycles.status, "drawn"),
+        gt(raffleCycles.startsOn, today),
+      ),
+    )
+    .orderBy(asc(raffleCycles.startsOn))
+    .limit(1);
+
   const [open] = await db
     .select({
       cycleId: raffleCycles.id,
@@ -97,6 +136,20 @@ export async function getResidentStatus(
   return {
     resident,
     current: current ?? null,
+    next: nextDrawn
+      ? {
+          cycleSequence: nextDrawn.cycleSequence,
+          startsOn: nextDrawn.startsOn,
+          endsOn: nextDrawn.endsOn,
+          outcome:
+            nextDrawn.registrationId === null
+              ? "not_entered"
+              : nextDrawn.spotLabel === null
+                ? "not_allocated"
+                : "allocated",
+          spotLabel: nextDrawn.spotLabel,
+        }
+      : null,
     upcoming: open
       ? {
           cycleId: open.cycleId,

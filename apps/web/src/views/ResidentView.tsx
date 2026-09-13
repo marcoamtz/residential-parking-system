@@ -11,7 +11,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { resident } from "@/lib/api";
-import { formatPeriod } from "@/lib/format";
+import { formatDate, formatPeriod } from "@/lib/format";
 
 export function ResidentView() {
   const queryClient = useQueryClient();
@@ -24,7 +24,7 @@ export function ResidentView() {
   if (status.isPending) return <Muted>Loading your status…</Muted>;
   if (status.isError) return <ErrorText error={status.error} />;
 
-  const { resident: me, current, upcoming, history } = status.data;
+  const { resident: me, current, next, upcoming, history } = status.data;
 
   return (
     <div className="space-y-4">
@@ -53,6 +53,41 @@ export function ResidentView() {
             )}
           </CardContent>
         </Card>
+
+        {next && (
+          <Card>
+            <CardHeader>
+              <CardTitle>
+                <h2>Next quarter</h2>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {next.outcome === "allocated" && (
+                <>
+                  <p className="text-3xl font-semibold">Spot {next.spotLabel}</p>
+                  <Muted>
+                    From {formatDate(next.startsOn)} to {formatDate(next.endsOn)}
+                  </Muted>
+                </>
+              )}
+              {next.outcome === "not_allocated" && (
+                <>
+                  <p className="text-lg font-medium">No spot next quarter</p>
+                  <Muted>
+                    Drawn for {formatPeriod(next.startsOn, next.endsOn)}. Every quarter without a
+                    spot moves you up in the following draw.
+                  </Muted>
+                </>
+              )}
+              {next.outcome === "not_entered" && (
+                <>
+                  <p className="text-lg font-medium">You did not enter</p>
+                  <Muted>The draw for {formatPeriod(next.startsOn, next.endsOn)} has run.</Muted>
+                </>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         <Card>
           <CardHeader>

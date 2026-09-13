@@ -44,6 +44,7 @@ describe("App", () => {
     vi.mocked(resident.status).mockResolvedValue({
       resident: { id: "r1", unit: "104", fullName: "Diego Salas" },
       current: null,
+      next: null,
       upcoming: null,
       history: [],
     });
