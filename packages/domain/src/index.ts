@@ -9,4 +9,6 @@ export {
   rankEntrants,
   tieBreakValue,
 } from "./draw";
+export type { CycleRef, Period, RotationAction, RotationInput } from "./rotation";
+export { addDays, addMonths, periodAfter, planRotation } from "./rotation";
 export type { Allocation, CycleStatus, DrawInput, DrawResult, Entrant, Spot } from "./types";
