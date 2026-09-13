@@ -47,7 +47,7 @@ What I explain out loud on day one, because it is not obvious from the code: the
 
 ### The starter task: withdraw a registration
 
-This task is intentionally unimplemented. It touches one route, one query, one cache bump, and one test, and every piece has an existing example next to it. It is small enough to finish in a day and real enough to ship.
+This task is intentionally unimplemented and tracked as [issue #12](https://github.com/marcoamtz/residential-parking-system/issues/12) with the `good first issue` label. It touches one route, one query, one cache bump, and one test, and every piece has an existing example next to it. It is small enough to finish in a day and real enough to ship.
 
 **User story.** As a resident registered for the open cycle, I want to withdraw so that I am not allocated a spot I no longer need.
 

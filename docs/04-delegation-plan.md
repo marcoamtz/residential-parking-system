@@ -75,6 +75,8 @@ flowchart LR
 
 Shaded: I own. Dashed: delegated against the contract.
 
+Each stream is a GitHub issue under the milestone [License plate recognition](https://github.com/marcoamtz/residential-parking-system/milestone/1): [#6](https://github.com/marcoamtz/residential-parking-system/issues/6) contract and fixtures, [#7](https://github.com/marcoamtz/residential-parking-system/issues/7) ingestion webhook, [#8](https://github.com/marcoamtz/residential-parking-system/issues/8) persistence and occupancy (kept); [#9](https://github.com/marcoamtz/residential-parking-system/issues/9) edge pipeline, [#10](https://github.com/marcoamtz/residential-parking-system/issues/10) edge hardware, [#11](https://github.com/marcoamtz/residential-parking-system/issues/11) live UI (delegated). Labels `owner:*` show who holds each one.
+
 ### The boundary
 
 | Workstream | Owner | Deliverable | Definition of done |
