@@ -1,4 +1,3 @@
-import { zValidator } from "@hono/zod-validator";
 import { schema } from "@parking/db";
 import { and, asc, eq } from "drizzle-orm";
 import { Hono } from "hono";
@@ -6,6 +5,7 @@ import { z } from "zod";
 import { requireAuth, requireRole } from "../auth/session";
 import type { AppEnv, Deps } from "../deps";
 import { HttpError, isUniqueViolation } from "../errors";
+import { validate } from "../validation";
 import { createCycle, getCycleDetail, listCycles } from "./cycles";
 import { runDraw } from "./draw";
 
@@ -24,7 +24,7 @@ export function adminRoutes(deps: Deps) {
     })
     .post(
       "/cycles",
-      zValidator("json", z.object({ startsOn: isoDate, endsOn: isoDate })),
+      validate("json", z.object({ startsOn: isoDate, endsOn: isoDate })),
       async (c) => {
         const user = c.get("user");
         const cycle = await createCycle(deps.db, user.buildingId, c.req.valid("json"));
@@ -32,7 +32,7 @@ export function adminRoutes(deps: Deps) {
         return c.json({ cycle }, 201);
       },
     )
-    .get("/cycles/:id", zValidator("param", idParam), async (c) => {
+    .get("/cycles/:id", validate("param", idParam), async (c) => {
       const detail = await getCycleDetail(
         deps.db,
         c.get("user").buildingId,
@@ -40,7 +40,7 @@ export function adminRoutes(deps: Deps) {
       );
       return c.json(detail);
     })
-    .post("/cycles/:id/draw", zValidator("param", idParam), async (c) => {
+    .post("/cycles/:id/draw", validate("param", idParam), async (c) => {
       const user = c.get("user");
       const outcome = await runDraw(deps.db, {
         cycleId: c.req.valid("param").id,
@@ -61,7 +61,7 @@ export function adminRoutes(deps: Deps) {
     })
     .post(
       "/spots",
-      zValidator("json", z.object({ label: z.string().trim().min(1).max(20) })),
+      validate("json", z.object({ label: z.string().trim().min(1).max(20) })),
       async (c) => {
         const user = c.get("user");
         try {
@@ -85,8 +85,8 @@ export function adminRoutes(deps: Deps) {
     )
     .patch(
       "/spots/:id",
-      zValidator("param", idParam),
-      zValidator("json", z.object({ isActive: z.boolean() })),
+      validate("param", idParam),
+      validate("json", z.object({ isActive: z.boolean() })),
       async (c) => {
         const user = c.get("user");
         const [spot] = await deps.db

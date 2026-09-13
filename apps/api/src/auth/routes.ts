@@ -1,10 +1,10 @@
-import { zValidator } from "@hono/zod-validator";
 import { schema } from "@parking/db";
 import { asc, eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
 import type { AppEnv, Deps, SessionUser } from "../deps";
 import { HttpError } from "../errors";
+import { validate } from "../validation";
 import { clearSession, issueSession, requireAuth } from "./session";
 
 const { users, residents } = schema;
@@ -43,7 +43,7 @@ export function authRoutes(deps: Deps) {
         return c.json({ users: rows });
       })
       /** Development only: password-less login. Replaced by an OIDC callback in production (ADR-0008). */
-      .post("/login", zValidator("json", z.object({ email: z.email() })), async (c) => {
+      .post("/login", validate("json", z.object({ email: z.email() })), async (c) => {
         if (!deps.mockAuth) throw new HttpError(404, "not_found", "Not available");
         const { email } = c.req.valid("json");
         const [row] = await deps.db.select().from(users).where(eq(users.email, email)).limit(1);

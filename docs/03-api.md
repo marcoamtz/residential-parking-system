@@ -4,7 +4,7 @@ Base path `/api`. JSON in and out. Route definitions in `apps/api/src` are the s
 
 ## Conventions
 
-- Every input is validated with Zod before a handler runs. Invalid input returns `400`.
+- Every input is validated with Zod before a handler runs. Invalid input returns `400` with code `validation_error` and an `issues` list of `{ path, message }`.
 - Errors are `{ "code": string, "message": string }`. Codes are stable identifiers such as `already_registered` or `cycle_already_drawn`; messages are for humans.
 - Sessions are a signed JWT in an `HttpOnly`, `Secure`, `SameSite=Strict` cookie ([ADR-0008](adr/0008-mock-auth-jwt-cookie-rbac.md)). Missing or invalid session returns `401`; wrong role returns `403`.
 - Every mutating request (anything but `GET`, `HEAD`, `OPTIONS`) must carry `X-Requested-With: parking-web`. Requests without it get `403`. Browsers only send custom headers from same-origin script, which is the second CSRF layer next to the cookie.
