@@ -1,16 +1,16 @@
-import { createDb, schema } from "@parking/db";
+import { schema } from "@parking/db";
 import { type Entrant, executeDraw, type Spot } from "@parking/domain";
 import { eq } from "drizzle-orm";
 import { afterAll, describe, expect, it } from "vitest";
 import { HttpError } from "../errors";
+import { createTestDb } from "../test/db";
 import { runDraw } from "./draw";
 
 /**
  * Integration tests against a real PostgreSQL (docker compose or CI service). Each test creates
  * its own building, so runs are isolated without truncating anything.
  */
-const url = process.env.DATABASE_URL ?? "postgres://parking:parking@localhost:5432/parking";
-const { db, pool } = createDb(url);
+const { db, pool } = createTestDb();
 const {
   buildings,
   residents,

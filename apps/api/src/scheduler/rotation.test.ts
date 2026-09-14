@@ -1,11 +1,11 @@
-import { createDb, schema } from "@parking/db";
+import { schema } from "@parking/db";
 import { and, eq } from "drizzle-orm";
 import { afterAll, describe, expect, it } from "vitest";
 import { NullCache } from "../cache";
+import { createTestDb } from "../test/db";
 import { rotateBuilding } from "./rotation";
 
-const url = process.env.DATABASE_URL ?? "postgres://parking:parking@localhost:5432/parking";
-const { db, pool } = createDb(url);
+const { db, pool } = createTestDb();
 const { buildings, residents, parkingSpots, raffleCycles, raffleRegistrations, spotAllocations } =
   schema;
 

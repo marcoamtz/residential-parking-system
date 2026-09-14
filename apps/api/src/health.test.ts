@@ -1,11 +1,10 @@
-import { createDb } from "@parking/db";
 import { afterAll, describe, expect, it } from "vitest";
 import { createApp } from "./app";
 import { NullCache } from "./cache";
+import { createTestDb } from "./test/db";
 
 /** Readiness against the real PostgreSQL from docker compose or the CI service. */
-const url = process.env.DATABASE_URL ?? "postgres://parking:parking@localhost:5432/parking";
-const { db, pool } = createDb(url);
+const { db, pool } = createTestDb();
 afterAll(() => pool.end());
 
 const app = createApp({

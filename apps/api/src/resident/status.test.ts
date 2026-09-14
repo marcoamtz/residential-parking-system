@@ -1,11 +1,11 @@
-import { createDb, schema } from "@parking/db";
+import { schema } from "@parking/db";
 import { afterAll, describe, expect, it } from "vitest";
 import { runDraw } from "../admin/draw";
+import { createTestDb } from "../test/db";
 import { getResidentStatus } from "./status";
 
 /** Resident status against the real PostgreSQL, around the week between a draw and its start. */
-const url = process.env.DATABASE_URL ?? "postgres://parking:parking@localhost:5432/parking";
-const { db, pool } = createDb(url);
+const { db, pool } = createTestDb();
 const { buildings, residents, parkingSpots, raffleCycles, raffleRegistrations } = schema;
 
 afterAll(() => pool.end());

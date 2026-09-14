@@ -1,12 +1,12 @@
-import { createDb, schema } from "@parking/db";
+import { schema } from "@parking/db";
 import { executeDraw } from "@parking/domain";
 import { afterAll, describe, expect, it } from "vitest";
 import { runDraw } from "../admin/draw";
+import { createTestDb } from "../test/db";
 import { getDrawVerification } from "./verification";
 
 /** The published verification record must be enough to replay the draw, and nothing more. */
-const url = process.env.DATABASE_URL ?? "postgres://parking:parking@localhost:5432/parking";
-const { db, pool } = createDb(url);
+const { db, pool } = createTestDb();
 const { buildings, residents, parkingSpots, raffleCycles, raffleRegistrations } = schema;
 
 afterAll(() => pool.end());

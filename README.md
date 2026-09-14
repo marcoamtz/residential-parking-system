@@ -43,7 +43,7 @@ docker compose up -d --wait       # PostgreSQL 16 and Redis 7, waits for health 
 pnpm install --frozen-lockfile
 pnpm db:migrate                   # apply the schema
 pnpm db:seed                      # one building, 12 residents, two drawn quarters, one open
-pnpm test                         # domain unit tests and PostgreSQL-backed integration tests
+pnpm test                         # unit, component, and PostgreSQL-backed tests (uses its own parking_test database)
 pnpm dev                          # API on http://localhost:3000, web on http://localhost:5173
 pnpm scheduler --once             # optional: today's rotation check (draw due cycles, open the next quarter)
 ```
@@ -53,6 +53,8 @@ pnpm scheduler --once             # optional: today's rotation check (draw due c
 No `.env` file is needed for local development: the API falls back to the Docker Compose connection strings and a development-only JWT secret. To override anything, `cp .env.example .env` and edit. In production every variable in `.env.example` is required and the API refuses to start without them.
 
 To start over from an empty database: `docker compose down -v`, then repeat from `docker compose up -d --wait`.
+
+Integration tests never touch the development data: the API test setup creates and migrates a separate `parking_test` database on the same server (override with `TEST_DATABASE_URL`).
 
 ### Seeded accounts
 
