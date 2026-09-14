@@ -32,3 +32,7 @@ The allocation constraints from ADR-0002 remain the hard invariant. If the state
 - `SERIALIZABLE` transaction: correct, but requires retry handling for `40001` errors and obscures which invariant actually matters.
 - Advisory lock per cycle: works, but adds a second mechanism when the status column already expresses the intent.
 - Application-level mutex in Redis: adds a dependency on the cache for correctness. The cache must never be required for correctness.
+
+## Amendment, 2026-09-14: registration closure
+
+An independent review found an interleaving the original decision did not cover: a registration that read the open cycle before the draw claimed it could insert after the draw committed, leaving a "loser" who never took part. Registration now runs in its own transaction that reads the cycle `FOR SHARE`. The draw's claiming `UPDATE` needs the row exclusively, so the two serialize: an in-flight registration makes the draw wait and is included; an in-flight draw makes the registration wait and then fail the `status = 'open'` re-check with `409 no_open_cycle`. Both interleavings are covered by `apps/api/src/resident/register.test.ts`. No schema change; the unique constraints remain the last line of defense.

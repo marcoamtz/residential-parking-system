@@ -144,6 +144,13 @@ describe("executeDraw", () => {
     expect(result.allocations.map((a) => a.registrationId)).toEqual(ids(result.ranked).slice(0, 4));
   });
 
+  it("returns no allocations and an empty ranking when nobody registered", () => {
+    const result = executeDraw({ cycleId: "c", entrants: [], spots: spots(3), seed: SEED });
+
+    expect(result.allocations).toEqual([]);
+    expect(result.ranked).toEqual([]);
+  });
+
   it("returns the full ranking but no allocations when there are no spots", () => {
     const pool = [entrant("a"), entrant("b")];
 

@@ -143,6 +143,36 @@ describe("runDraw", () => {
     expect(allocations).toHaveLength(2);
   });
 
+  it("never allocates an inactive spot", async () => {
+    const b = await building();
+    const [active, inactive] = await spots(b, 2);
+    if (!active || !inactive) throw new Error("no spots");
+    await db.update(parkingSpots).set({ isActive: false }).where(eq(parkingSpots.id, inactive.id));
+    const cycle = await openCycle(b, 1);
+    for (const unit of ["a", "b", "c"]) await register(cycle, await resident(b, unit));
+
+    const outcome = await runDraw(db, { cycleId: cycle, buildingId: b, executedByUserId: null });
+
+    expect(outcome).toMatchObject({ entrants: 3, spots: 1, allocations: 1 });
+    const allocations = await db
+      .select({ spotId: spotAllocations.spotId })
+      .from(spotAllocations)
+      .where(eq(spotAllocations.cycleId, cycle));
+    expect(allocations.map((a) => a.spotId)).toEqual([active.id]);
+  });
+
+  it("draws a cycle with no entrants as a no-op draw with a verification record", async () => {
+    const b = await building();
+    await spots(b, 2);
+    const cycle = await openCycle(b, 1);
+
+    const outcome = await runDraw(db, { cycleId: cycle, buildingId: b, executedByUserId: null });
+
+    expect(outcome).toMatchObject({ entrants: 0, spots: 2, allocations: 0 });
+    const [draw] = await db.select().from(raffleDraws).where(eq(raffleDraws.cycleId, cycle));
+    expect(draw?.seed).toBeTruthy();
+  });
+
   it("does not let a building draw another building's cycle", async () => {
     const b1 = await building();
     const b2 = await building();

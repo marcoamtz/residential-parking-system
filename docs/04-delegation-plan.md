@@ -9,7 +9,7 @@ The prototype was built in the order below. Status reflects what exists on `main
 | Module | Owner | Depends on | Definition of done | Status |
 | --- | --- | --- | --- | --- |
 | Domain engine (`packages/domain`) | Me | Nothing | Pure `executeDraw`; unit tests for every ranking rule, tie-break determinism, and input validation | Done, 15 tests |
-| Schema and migrations (`packages/db`) | Me | Nothing | Every invariant is a constraint; migration applies to a fresh database; migrator script | Done |
+| Schema and migrations (`packages/db`) | Me | Nothing | Every uniqueness and ownership invariant is a constraint (registration closure is a row lock shared with the draw); migration applies to a fresh database; migrator script | Done |
 | Draw transaction (`apps/api/src/admin/draw.ts`) | Me | Domain, schema | Single transaction, state-transition mutex, verification record; integration tests for replay, 409, concurrency, tenant scoping | Done, 5 tests |
 | Session and authorization (`apps/api/src/auth`) | Me | Nothing | JWT cookie, role middleware, CSRF header check; resident id only from claims | Done |
 | Resident routes and status query | Delegable | Schema, auth | Status shape agreed with web; register handles 409s; cache bump after write | Done |

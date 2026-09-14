@@ -187,24 +187,30 @@ export async function registerForOpenCycle(
     .limit(1);
   if (!resident) throw new HttpError(403, "resident_inactive", "Resident cannot register");
 
-  const [open] = await db
-    .select({ id: raffleCycles.id, sequence: raffleCycles.sequence })
-    .from(raffleCycles)
-    .where(and(eq(raffleCycles.buildingId, buildingId), eq(raffleCycles.status, "open")))
-    .limit(1);
-  if (!open) throw new HttpError(409, "no_open_cycle", "No cycle is accepting registrations");
+  // Registration and the draw serialize on the cycle row. FOR SHARE waits for an in-flight draw
+  // (which holds the row for UPDATE) and then re-evaluates status = 'open', so a registration can
+  // never land in a cycle whose draw has already committed (ADR-0004).
+  return db.transaction(async (tx) => {
+    const [open] = await tx
+      .select({ id: raffleCycles.id, sequence: raffleCycles.sequence })
+      .from(raffleCycles)
+      .where(and(eq(raffleCycles.buildingId, buildingId), eq(raffleCycles.status, "open")))
+      .limit(1)
+      .for("share");
+    if (!open) throw new HttpError(409, "no_open_cycle", "No cycle is accepting registrations");
 
-  try {
-    const [row] = await db
-      .insert(raffleRegistrations)
-      .values({ cycleId: open.id, residentId })
-      .returning({ id: raffleRegistrations.id });
-    if (!row) throw new Error("insert returned no row");
-    return { registrationId: row.id, cycleId: open.id, cycleSequence: open.sequence };
-  } catch (error) {
-    if (isUniqueViolation(error)) {
-      throw new HttpError(409, "already_registered", "Already registered for this cycle");
+    try {
+      const [row] = await tx
+        .insert(raffleRegistrations)
+        .values({ cycleId: open.id, residentId })
+        .returning({ id: raffleRegistrations.id });
+      if (!row) throw new Error("insert returned no row");
+      return { registrationId: row.id, cycleId: open.id, cycleSequence: open.sequence };
+    } catch (error) {
+      if (isUniqueViolation(error)) {
+        throw new HttpError(409, "already_registered", "Already registered for this cycle");
+      }
+      throw error;
     }
-    throw error;
-  }
+  });
 }

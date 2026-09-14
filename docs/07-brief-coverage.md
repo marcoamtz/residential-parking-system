@@ -25,7 +25,7 @@ Every requirement in the assessment brief, in the brief's order, with its status
 
 | # | Requirement | Status | Evidence |
 | --- | --- | --- | --- |
-| 1a | Allow residents to register for the parking raffle | Built | `POST /api/resident/register`; "Register for this draw" in `ResidentView`; tests in `apps/web/src/views/ResidentView.test.tsx` |
+| 1a | Allow residents to register for the parking raffle | Built | `POST /api/resident/register`; "Register for this draw" in `ResidentView`; rejection and draw-interleaving tests in `apps/api/src/resident/register.test.ts`, component tests in `apps/web/src/views/ResidentView.test.tsx` |
 | 1b | Allocate available parking spots fairly | Built | `executeDraw` in `packages/domain/src/draw.ts`, rule in [ADR-0003](adr/0003-fairness-ranking-rule.md); 15 unit tests; real-data walkthrough in [02-domain-and-fairness.md](02-domain-and-fairness.md) |
 | 1c | Rotate assignments every 3 months | Built | `planRotation` in `packages/domain/src/rotation.ts` (9 tests); worker in `apps/api/src/scheduler` (4 PostgreSQL-backed tests); `pnpm scheduler --once` |
 | 1d | Track residents' parking history to prioritize fairness | Built | History tables and the one-query ranking input in `apps/api/src/admin/draw.ts`; history table on the resident's page |
