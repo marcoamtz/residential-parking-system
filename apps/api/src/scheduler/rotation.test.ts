@@ -108,6 +108,26 @@ describe("rotateBuilding", () => {
     ]);
   });
 
+  it("recovers from downtime in one run and is idempotent the same day", async () => {
+    const b = await building();
+    await db.insert(parkingSpots).values([{ buildingId: b, label: "S1" }]);
+    // Worker was down for over a year: the open cycle's quarter ended long ago.
+    await cycleWithEntrants(b, 1, "2025-01-01", "2025-03-31", ["a", "b"]);
+
+    const first = await rotateBuilding(db, new NullCache(), b, "2026-09-13", 7);
+    expect(first.actions).toEqual([
+      { type: "draw", cycleId: expect.any(String) },
+      { type: "open", period: { startsOn: "2026-10-01", endsOn: "2026-12-31" } },
+    ]);
+
+    const second = await rotateBuilding(db, new NullCache(), b, "2026-09-13", 7);
+    expect(second.actions).toEqual([]);
+    expect(await cycles(b)).toEqual([
+      { sequence: 1, status: "drawn", startsOn: "2025-01-01", endsOn: "2025-03-31" },
+      { sequence: 2, status: "open", startsOn: "2026-10-01", endsOn: "2026-12-31" },
+    ]);
+  });
+
   it("does nothing for a building with no cycles", async () => {
     const b = await building();
     const result = await rotateBuilding(db, new NullCache(), b, "2026-09-13", 7);

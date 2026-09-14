@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { addMonths, type CycleRef, periodAfter, planRotation } from "./rotation";
+import {
+  addMonths,
+  type CycleRef,
+  nextOpenablePeriod,
+  periodAfter,
+  planRotation,
+} from "./rotation";
 
 const cycle = (partial: Partial<CycleRef> & Pick<CycleRef, "startsOn" | "endsOn">): CycleRef => ({
   id: "c",
@@ -96,7 +102,7 @@ describe("planRotation", () => {
     ).toEqual([{ type: "open", period: { startsOn: "2027-01-01", endsOn: "2027-03-31" } }]);
   });
 
-  it("skips quarters that already ended so it catches up instead of replaying history", () => {
+  it("catches up after downtime by opening the first quarter that still has a registration window", () => {
     const stale = cycle({
       id: "d",
       sequence: 1,
@@ -104,6 +110,7 @@ describe("planRotation", () => {
       startsOn: "2025-10-01",
       endsOn: "2025-12-31",
     });
+    // 2026-09-13: Q3 2026 is in progress and Q4's draw day (2026-09-24) is still ahead.
     expect(
       planRotation({
         today: "2026-09-13",
@@ -111,7 +118,53 @@ describe("planRotation", () => {
         latestDrawnCycle: stale,
         drawLeadDays: 7,
       }),
-    ).toEqual([{ type: "open", period: { startsOn: "2026-07-01", endsOn: "2026-09-30" } }]);
+    ).toEqual([{ type: "open", period: { startsOn: "2026-10-01", endsOn: "2026-12-31" } }]);
+    // 2026-09-25: Q4's draw day has passed, so Q1 2027 is the first openable quarter.
+    expect(
+      planRotation({
+        today: "2026-09-25",
+        openCycle: null,
+        latestDrawnCycle: stale,
+        drawLeadDays: 7,
+      }),
+    ).toEqual([{ type: "open", period: { startsOn: "2027-01-01", endsOn: "2027-03-31" } }]);
+  });
+
+  it("draws an overdue open cycle once and is a no-op on the same day afterwards", () => {
+    const overdue = cycle({ id: "o", sequence: 2, startsOn: "2025-01-01", endsOn: "2025-03-31" });
+    const first = planRotation({
+      today: "2026-09-13",
+      openCycle: overdue,
+      latestDrawnCycle: null,
+      drawLeadDays: 7,
+    });
+    expect(first).toEqual([
+      { type: "draw", cycleId: "o" },
+      { type: "open", period: { startsOn: "2026-10-01", endsOn: "2026-12-31" } },
+    ]);
+
+    // The cycle the first run opened is now the open cycle; its draw day is still ahead.
+    const opened = cycle({ id: "n", sequence: 3, startsOn: "2026-10-01", endsOn: "2026-12-31" });
+    expect(
+      planRotation({
+        today: "2026-09-13",
+        openCycle: opened,
+        latestDrawnCycle: { ...overdue, status: "drawn" },
+        drawLeadDays: 7,
+      }),
+    ).toEqual([]);
+  });
+
+  it("never opens a quarter whose draw day is today or earlier", () => {
+    const previous = { startsOn: "2026-07-01", endsOn: "2026-09-30" };
+    expect(nextOpenablePeriod(previous, "2026-09-23", 7)).toEqual({
+      startsOn: "2026-10-01",
+      endsOn: "2026-12-31",
+    });
+    expect(nextOpenablePeriod(previous, "2026-09-24", 7)).toEqual({
+      startsOn: "2027-01-01",
+      endsOn: "2027-03-31",
+    });
   });
 
   it("does nothing for a building with no cycles", () => {

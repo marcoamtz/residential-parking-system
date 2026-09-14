@@ -37,3 +37,7 @@ Execution reuses the administrator's code paths, `runDraw` and `createCycle`, so
 - In-process timer inside the API: fires once per instance; wrong as soon as there are two.
 - Platform cron only: viable and supported through `--once`, but it moves the schedule outside the repository and the worker gives a single place to observe runs and retries.
 - Keep deferring (ADR-0007): the deployment target is still unknown, but the choice no longer depends on it; the worker runs anywhere the API runs.
+
+## Amendment, 2026-09-14: recovery after downtime
+
+Independent review showed the original policy was not idempotent after long downtime: an open cycle whose quarter had ended was drawn and the *immediately* following quarter opened, so each same-day run advanced one historical quarter. The policy now opens the first quarter whose draw day is still in the future (`nextOpenablePeriod`), skipping quarters that have already started or ended. Consequences: a newly opened cycle always has a registration window; a second run on the same day is a no-op in every state, which the domain and integration tests now cover; a quarter already in progress when the worker recovers is not opened automatically, and an administrator can open and draw one by hand if the building wants it. An overdue open cycle is still drawn (its entrants get their outcome and history), and the worker logs a warning for that late draw.

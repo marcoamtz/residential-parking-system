@@ -51,6 +51,12 @@ export async function rotateBuilding(
 
   for (const action of actions) {
     if (action.type === "draw") {
+      if (openCycle && openCycle.startsOn <= today) {
+        logger.warn(
+          { buildingId, cycleId: action.cycleId, startsOn: openCycle.startsOn, today },
+          "late draw: the cycle's start has already passed (worker downtime?)",
+        );
+      }
       await runDraw(db, { cycleId: action.cycleId, buildingId, executedByUserId: null });
     } else {
       await createCycle(db, buildingId, action.period);

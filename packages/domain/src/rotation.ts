@@ -58,16 +58,30 @@ export function periodAfter(period: Period): Period {
 }
 
 /**
+ * The first period after `previous` whose draw day is still in the future, so that a newly opened
+ * cycle always gets a registration window. Periods whose draw day has passed (including a quarter
+ * already in progress after downtime) are skipped; an administrator can open one by hand.
+ */
+export function nextOpenablePeriod(previous: Period, today: string, drawLeadDays: number): Period {
+  let period = periodAfter(previous);
+  while (addDays(period.startsOn, -drawLeadDays) <= today) {
+    period = periodAfter(period);
+  }
+  return period;
+}
+
+/**
  * Decide the day's actions for one building.
  *
- * - An open cycle is drawn once `today` is within `drawLeadDays` of its start, and the following
- *   quarter is opened in the same run so registration never has a gap.
- * - With no open cycle, the quarter after the latest drawn cycle is opened, skipping any quarters
- *   that have already ended so the system catches up after downtime instead of replaying history.
+ * - An open cycle is drawn once `today` is within `drawLeadDays` of its start (or later, if the
+ *   worker was down), and the next openable quarter is opened in the same run so registration
+ *   never has a gap.
+ * - With no open cycle, the next openable quarter after the latest drawn cycle is opened.
  * - With no cycles at all, nothing happens: the first cycle is an administrator's decision.
  *
- * Running this twice on the same day is safe: the second run sees a drawn cycle and an open one
- * whose start is still far away, and returns no actions.
+ * Running this twice on the same day is a no-op by construction: after a run, the open cycle's
+ * draw day is strictly in the future, so the second run returns no actions. This holds after
+ * downtime too, because quarters whose draw day already passed are skipped rather than replayed.
  */
 export function planRotation(input: RotationInput): RotationAction[] {
   const { today, openCycle, latestDrawnCycle, drawLeadDays } = input;
@@ -77,16 +91,12 @@ export function planRotation(input: RotationInput): RotationAction[] {
     if (today < drawOn) return [];
     return [
       { type: "draw", cycleId: openCycle.id },
-      { type: "open", period: periodAfter(openCycle) },
+      { type: "open", period: nextOpenablePeriod(openCycle, today, drawLeadDays) },
     ];
   }
 
   if (latestDrawnCycle) {
-    let period = periodAfter(latestDrawnCycle);
-    while (period.endsOn < today) {
-      period = periodAfter(period);
-    }
-    return [{ type: "open", period }];
+    return [{ type: "open", period: nextOpenablePeriod(latestDrawnCycle, today, drawLeadDays) }];
   }
 
   return [];
