@@ -42,6 +42,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: pnpm/action-setup@v4
 
@@ -58,7 +60,14 @@ jobs:
             turbo-${{ runner.os }}-
 
       - run: pnpm install --frozen-lockfile
+
+      # Same rule as the commit-msg hook, so skipping the hook locally cannot bypass it.
+      - name: Commit subjects follow Conventional Commits
+        if: github.event_name == 'pull_request'
+        run: node scripts/check-commit-range.mjs "origin/${{ github.base_ref }}..HEAD"
+
       - run: pnpm lint
+      - run: pnpm check:boundaries
       - run: pnpm typecheck
       - run: pnpm db:migrate
       - run: pnpm test
@@ -74,3 +83,41 @@ jobs:
       - uses: actions/checkout@v4
       # Builds only; nothing is pushed. Proves the Dockerfiles stay in step with the workspace.
       - run: docker build -f apps/${{ matrix.app }}/Dockerfile -t parking-${{ matrix.app }}:ci .
+      # Informational scan: the table is in the job log. The threshold that fails the build is a
+      # policy decision recorded in docs/05; until then, findings are visible but do not block.
+      - name: Scan image (informational)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: parking-${{ matrix.app }}:ci
+          format: table
+          severity: CRITICAL,HIGH
+          exit-code: "0"
+          ignore-unfixed: true
+
+  rehearsal:
+    name: Compose rehearsal (api, worker, web)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Start the image topology
+        run: docker compose -f docker-compose.yml -f docker-compose.images.yml up -d --build --wait --wait-timeout 180
+      - name: Migrate as a one-off task
+        run: docker compose -f docker-compose.yml -f docker-compose.images.yml run --rm api node dist/migrate.js
+      - name: Every service healthy, including the worker
+        run: |
+          docker compose -f docker-compose.yml -f docker-compose.images.yml ps --format '{{.Service}} {{.Health}}'
+          test "$(docker compose -f docker-compose.yml -f docker-compose.images.yml ps --format '{{.Health}}' | grep -vc healthy)" = "0"
+      - name: Edge behaves as documented
+        run: |
+          set -eux
+          curl -fsS http://localhost:8080/healthz
+          curl -fsS http://localhost:8080/api/health
+          curl -sS -o /dev/null -w '%{http_code}\n' http://localhost:8080/api/metrics | grep -x 404
+          curl -sSI http://localhost:8080/ | grep -i 'content-security-policy'
+          curl -sSI http://localhost:8080/ | grep -i 'x-content-type-options: nosniff'
+          ! curl -sSI http://localhost:8080/ | grep -i 'server: nginx/'
+          docker compose -f docker-compose.yml -f docker-compose.images.yml exec -T web id -u | grep -x 101
+          docker compose -f docker-compose.yml -f docker-compose.images.yml exec -T api id -u | grep -x 1000
+      - name: Tear down
+        if: always()
+        run: docker compose -f docker-compose.yml -f docker-compose.images.yml down -v

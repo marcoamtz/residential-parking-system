@@ -89,7 +89,7 @@ open http://localhost:8080
 ```
 
 - `apps/api/Dockerfile`: multi-stage; `turbo prune` → install → `tsup` single-file bundles for the server, the rotation worker, and the migrator. Runtime is `node:24-alpine`, non-root, with `dist/` and the migration SQL only. Migrations run as a one-off task, never at startup. The `scheduler` service runs the same image with `node dist/scheduler.js`.
-- `apps/web/Dockerfile`: static build served by `nginx:1.27-alpine`, proxying `/api/` to `API_UPSTREAM` so the session cookie stays first-party.
+- `apps/web/Dockerfile`: static build served by `nginxinc/nginx-unprivileged:1.27-alpine` (uid 101, port 8080), proxying `/api/` to `API_UPSTREAM` so the session cookie stays first-party; security headers and CSP set at the edge; `/api/metrics` blocked there.
 - `docker-compose.images.yml`: local rehearsal of the reference topology in [docs/01-architecture.md](docs/01-architecture.md). Placeholder secrets, no TLS.
 
 ## Repository layout
@@ -105,7 +105,7 @@ docs/
   adr/        Architecture decision records.
 ```
 
-Boundaries are enforced by package dependencies: `domain` imports nothing from the workspace, `db` imports nothing from `api`, and `web` imports only the API's route types.
+Boundaries: `domain` imports nothing from the workspace, `db` imports nothing from `api`, and `web` imports only the API's route types. pnpm's strict resolution blocks undeclared packages; `pnpm check:boundaries` (CI and pre-push) blocks relative imports across packages and runtime imports where only types are allowed.
 
 ## Status
 

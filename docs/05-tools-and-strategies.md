@@ -49,11 +49,11 @@ Stack rationale in full lives in the ADRs. This document summarizes the choices,
 
 **The draw.** Sorting a few hundred entrants is microseconds. The cost is the transaction, and it is kept short: one `UPDATE` to claim, one query for entrants with history (a CTE with `FILTER` aggregates, no per-entrant round trips), one for active spots, computation in memory, two multi-row `INSERT`s, commit. The cache call happens after commit so no Redis round trip is made while a connection is held.
 
-**Reads.** `GET /api/resident/status` is the hot path after a draw is announced. It is cached per resident under the building version with a 300 second TTL. Expected hit rate after a draw: high, because each resident refreshes several times and the data only changes when someone registers for the next cycle. Measurement: a `cache_hit`/`cache_miss` counter per route is the first metric to add; it is not in the prototype.
+**Reads.** `GET /api/resident/status` is the hot path after a draw is announced. It is cached per resident under the building version with a 300 second TTL. Expected hit rate after a draw: high, because each resident refreshes several times and the data only changes when someone registers for the next cycle. Measured by `cache_requests_total{result=hit|miss}` at `/api/metrics`.
 
 **Database.** Every index maps to a query in [02-domain-and-fairness.md](02-domain-and-fairness.md). At residential-building volumes all tables fit in memory and the planner will use indexes for joins and sequential scans for aggregates, both correctly. Connection pooling: `pg.Pool` per API instance today; PgBouncer in transaction mode when instances multiply. Read replicas are not needed on any allocation path and are stated as such rather than listed as a plan.
 
-**Load balancing.** The API is stateless. Sessions are in the cookie, the cache is shared, and the database is the only coordination point. Any instance serves any request; the load balancer needs only `/api/health`.
+**Load balancing.** The API is stateless. Sessions are in the cookie, the cache is shared, and the database is the only coordination point. Any instance serves any request; the load balancer routes on `/api/ready`.
 
 **What does not need to scale.** Four draws per building per year. Even ten thousand buildings is a hundred draws a day. Design effort went into the read path and tenant isolation, not the draw.
 
@@ -80,12 +80,14 @@ Stack rationale in full lives in the ADRs. This document summarizes the choices,
 | Mass assignment | Zod schemas whitelist exactly the accepted fields | every `zValidator` call |
 | Race conditions | State-transition mutex and unique constraints | `runDraw`, schema |
 | Session theft | HttpOnly cookie; short expiry; secret from the environment, rotated by redeploy | `apps/api/src/auth/session.ts` |
+| Clickjacking, MIME sniffing, referrer leakage | API: Hono `secureHeaders` (`X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, restrictive CSP for a JSON API). Web edge: nginx sets the same plus a CSP that allows only the app's own bundles (`style-src 'unsafe-inline'` for Radix inline styles), `server_tokens off`, `/api/metrics` blocked at the edge | `apps/api/src/app.ts`, `apps/web/security-headers.conf`, `apps/web/nginx.conf.template`; asserted in `app.test.ts` and the CI compose rehearsal |
+| Container privilege | API runs as `node` (uid 1000); web runs on `nginx-unprivileged` (uid 101, port 8080); the worker's health check is process-based | Dockerfiles, `docker-compose.images.yml`; asserted in the CI compose rehearsal |
 
 **Cloud practices for the reference topology.**
 - Least-privilege task roles; the API role can reach RDS and ElastiCache and nothing else.
 - Database and cache in private subnets; security groups allow only the API tasks.
 - Secrets in Secrets Manager, injected at task start, never in images or the repository. `.env` is git-ignored and `.env.example` carries no real values.
-- Container images scanned on push. A `pnpm audit` gate with a failure threshold on high severity is the next CI addition; it is not in the prototype pipeline.
+- Container images are scanned in CI with Trivy (CRITICAL and HIGH, informational: the table is in the job log and does not fail the build until a threshold policy is agreed). Base images are tag-pinned (`node:24-alpine`, `nginxinc/nginx-unprivileged:1.27-alpine`); digest pinning with automated updates is the next step. A `pnpm audit` gate is likewise documented, not yet enforced.
 - Infrastructure as code so the security posture is reviewable in a pull request.
 
 ## Reliability and observability

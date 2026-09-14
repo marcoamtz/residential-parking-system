@@ -28,11 +28,12 @@ COPY --from=pruner /repo/out/full/ .
 COPY tsconfig.base.json ./
 RUN pnpm --filter @parking/web build
 
-# ---- runtime: nginx serving static files and proxying /api to the API service -------------------
-FROM nginx:1.27-alpine AS runner
+# ---- runtime: unprivileged nginx (uid 101, port 8080) serving static files, proxying /api ------
+FROM nginxinc/nginx-unprivileged:1.27-alpine AS runner
 ENV API_UPSTREAM=http://api:3000
+COPY apps/web/security-headers.conf /etc/nginx/snippets/security-headers.conf
 COPY apps/web/nginx.conf.template /etc/nginx/templates/default.conf.template
 COPY --from=builder /repo/apps/web/dist /usr/share/nginx/html
-EXPOSE 80
+EXPOSE 8080
 HEALTHCHECK --interval=10s --timeout=3s --retries=5 \
-  CMD wget -qO- http://127.0.0.1/healthz || exit 1
+  CMD wget -qO- http://127.0.0.1:8080/healthz || exit 1

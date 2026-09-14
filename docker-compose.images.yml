@@ -31,6 +31,12 @@ services:
       context: .
       dockerfile: apps/api/Dockerfile
     command: ["node", "dist/scheduler.js"]
+    # The worker serves no HTTP; the image's HTTP health check would never pass. Liveness = process alive.
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep -f 'dist/scheduler.js' > /dev/null || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
     environment:
       NODE_ENV: production
       DATABASE_URL: postgres://parking:parking@postgres:5432/parking
@@ -51,6 +57,6 @@ services:
     environment:
       API_UPSTREAM: http://api:3000
     ports:
-      - "8080:80"
+      - "8080:8080"
     depends_on:
       - api

@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { requestId } from "hono/request-id";
+import { secureHeaders } from "hono/secure-headers";
 import { adminRoutes } from "./admin/routes";
 import { authRoutes } from "./auth/routes";
 import { requireCustomHeader } from "./csrf";
@@ -18,6 +19,12 @@ export function createApp(deps: Deps) {
     new Hono<AppEnv>()
       // Honors an incoming X-Request-Id (from the load balancer or nginx) or generates one.
       .use(requestId())
+      // JSON API: no framing, no sniffing, no referrer leakage; HSTS is added by the TLS edge.
+      .use(
+        secureHeaders({
+          contentSecurityPolicy: { defaultSrc: ["'none'"], frameAncestors: ["'none'"] },
+        }),
+      )
       .use(requestLogging)
       .use(requireCustomHeader)
       .onError(errorHandler)

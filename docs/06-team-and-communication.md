@@ -30,7 +30,7 @@ Async first: questions go in writing with enough context to be answered without 
 - **Turnaround.** First response within one working day. A review that will take longer says so.
 - **The checklist** lives in `.github/PULL_REQUEST_TEMPLATE.md` so it is in front of the author before the reviewer: tests for domain changes, migration compatibility, cache bump on resident-visible writes, resident identity from the session only, no personal data in logs, accessible UI, and an ADR for anything hard to reverse.
 - **Tone.** Questions over directives. Every comment says whether it blocks the merge. Nits are prefixed as nits. Praise is specific or omitted.
-- **Before the review starts.** Git hooks catch what a reviewer should never have to mention: Biome formats and lints staged files at commit time, the commit message must follow Conventional Commits, and typecheck plus the database-free tests run before push. `LEFTHOOK=0` skips a hook when there is a reason; CI runs the same gates, so skipping never bypasses them.
+- **Before the review starts.** Git hooks catch what a reviewer should never have to mention: Biome formats and lints staged files at commit time, the commit message must follow Conventional Commits, and typecheck plus the database-free tests run before push. `LEFTHOOK=0` skips a hook when there is a reason; CI runs the same gates, including the commit-subject rule over every commit in a pull request and the package-boundary check, so skipping never bypasses them.
 
 **Definition of done** for any task: merged to `main`, CI green, documentation updated if behavior changed, and demonstrated in staging when there is a user-visible change.
 

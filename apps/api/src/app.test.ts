@@ -93,6 +93,15 @@ describe("error contract", () => {
     });
   });
 
+  it("sets security headers on every response", async () => {
+    const res = await app.request("/api/health");
+    expect(res.headers.get("x-content-type-options")).toBe("nosniff");
+    expect(res.headers.get("x-frame-options")).toBe("SAMEORIGIN");
+    expect(res.headers.get("referrer-policy")).toBe("no-referrer");
+    expect(res.headers.get("content-security-policy")).toContain("default-src 'none'");
+    expect(res.headers.get("x-powered-by")).toBeNull();
+  });
+
   it("echoes a supplied request id and generates one otherwise", async () => {
     const supplied = await app.request("/api/health", { headers: { "x-request-id": "abc-123" } });
     expect(supplied.headers.get("x-request-id")).toBe("abc-123");

@@ -20,6 +20,8 @@ pre-push:
   commands:
     typecheck:
       run: pnpm typecheck
+    boundaries:
+      run: pnpm check:boundaries
     tests-without-database:
       # Domain and web tests need no services; the PostgreSQL-backed API suite runs in CI.
       run: pnpm --filter @parking/domain --filter @parking/web test

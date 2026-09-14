@@ -1,21 +1,6 @@
-// Conventional Commits check for the commit-msg hook. No dependency: one regular expression.
-// Format: <type>(<optional scope>)<optional !>: <subject>, subject up to 72 characters.
+// commit-msg hook: validate the subject line of the message being committed.
 import { readFileSync } from "node:fs";
-
-const TYPES = [
-  "feat",
-  "fix",
-  "docs",
-  "test",
-  "build",
-  "ci",
-  "chore",
-  "refactor",
-  "perf",
-  "style",
-  "revert",
-];
-const PATTERN = new RegExp(`^(${TYPES.join("|")})(\\([a-z0-9][a-z0-9-]*\\))?!?: [^\\s].{0,71}$`);
+import { checkSubject } from "./commit-message-rule.mjs";
 
 const file = process.argv[2];
 if (!file) {
@@ -28,12 +13,9 @@ const subject =
     .split("\n")
     .find((line) => line.trim() !== "" && !line.startsWith("#")) ?? "";
 
-// Git-generated messages are left alone.
-if (/^(Merge|Revert|fixup!|squash!) /.test(subject)) process.exit(0);
-
-if (!PATTERN.test(subject)) {
-  console.error(`Commit subject does not follow Conventional Commits:\n\n  ${subject}\n`);
-  console.error(`Expected: <type>(<scope>)?: <subject>   with type in ${TYPES.join(", ")}`);
+const problem = checkSubject(subject);
+if (problem) {
+  console.error(`Commit subject ${problem}:\n\n  ${subject}\n`);
   console.error("Example:  feat(api): add readiness endpoint");
   process.exit(1);
 }

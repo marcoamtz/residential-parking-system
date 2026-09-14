@@ -185,7 +185,7 @@ The prototype runs on Docker Compose. The reference topology below is the intend
 | Concern | Local prototype | Reference production |
 | --- | --- | --- |
 | API runtime | `tsx watch` in a terminal | `apps/api/Dockerfile`: `tsup` single-file bundle on `node:24-alpine`, non-root, on ECS Fargate, 2+ tasks across availability zones |
-| Web | Vite dev server with `/api` proxy | Static build in S3 behind CloudFront with `/api/*` routed to the ALB; `apps/web/Dockerfile` (nginx) is the equivalent for container-only platforms |
+| Web | Vite dev server with `/api` proxy | Static build in S3 behind CloudFront with `/api/*` routed to the ALB; `apps/web/Dockerfile` (unprivileged nginx, security headers, `/api/metrics` blocked at the edge) is the equivalent for container-only platforms |
 | Entry point | `localhost:5173` | Application Load Balancer, TLS termination, target health on `/api/ready`; `/api/metrics` not routed |
 | Database | `postgres:16-alpine` container | RDS for PostgreSQL 16, Multi-AZ, automated backups, point-in-time recovery, encryption at rest |
 | Cache and queue | `redis:7-alpine` container | ElastiCache for Redis, single node is enough; loss is tolerated by design |
