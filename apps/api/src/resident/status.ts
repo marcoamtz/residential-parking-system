@@ -30,6 +30,7 @@ export interface ResidentStatus {
   } | null;
   /** Every drawn cycle the resident entered, newest first. */
   history: Array<{
+    cycleId: string;
     cycleSequence: number;
     startsOn: string;
     endsOn: string;
@@ -121,6 +122,7 @@ export async function getResidentStatus(
 
   const history = await db
     .select({
+      cycleId: raffleCycles.id,
       cycleSequence: raffleCycles.sequence,
       startsOn: raffleCycles.startsOn,
       endsOn: raffleCycles.endsOn,
@@ -160,6 +162,7 @@ export async function getResidentStatus(
         }
       : null,
     history: history.map((row) => ({
+      cycleId: row.cycleId,
       cycleSequence: row.cycleSequence,
       startsOn: row.startsOn,
       endsOn: row.endsOn,

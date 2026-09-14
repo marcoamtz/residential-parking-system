@@ -26,7 +26,7 @@ Every requirement in the assessment brief, in the brief's order, with its status
 | # | Requirement | Status | Evidence |
 | --- | --- | --- | --- |
 | 1a | Allow residents to register for the parking raffle | Built | `POST /api/resident/register`; "Register for this draw" in `ResidentView`; rejection and draw-interleaving tests in `apps/api/src/resident/register.test.ts`, component tests in `apps/web/src/views/ResidentView.test.tsx` |
-| 1b | Allocate available parking spots fairly | Built | `executeDraw` in `packages/domain/src/draw.ts`, rule in [ADR-0003](adr/0003-fairness-ranking-rule.md); 15 unit tests; real-data walkthrough in [02-domain-and-fairness.md](02-domain-and-fairness.md) |
+| 1b | Allocate available parking spots fairly | Built | `executeDraw` in `packages/domain/src/draw.ts`, rule in [ADR-0003](adr/0003-fairness-ranking-rule.md); unit tests; real-data walkthrough in [02-domain-and-fairness.md](02-domain-and-fairness.md); residents can fetch and replay the verification record of any drawn cycle (`GET /api/resident/draws/:cycleId`, tested in `apps/api/src/draws/verification.test.ts`) |
 | 1c | Rotate assignments every 3 months | Built | `planRotation` in `packages/domain/src/rotation.ts` (9 tests); worker in `apps/api/src/scheduler` (4 PostgreSQL-backed tests); `pnpm scheduler --once` |
 | 1d | Track residents' parking history to prioritize fairness | Built | History tables and the one-query ranking input in `apps/api/src/admin/draw.ts`; history table on the resident's page |
 | 2a | A simple web interface (React, Angular, or plain JavaScript) | Built | `apps/web`: React 19, Vite, shadcn/ui ([ADR-0010](adr/0010-react-vite-spa.md), [ADR-0011](adr/0011-shadcn-ui-from-the-start.md)); 14 component tests |

@@ -77,9 +77,22 @@ The rule is covered by unit tests in `packages/domain/src/draw.test.ts` (15 case
 
 ### How a resident can verify a draw
 
-Every draw stores its seed and the exact input (entrants with their three history numbers, and the active spots) in `raffle_draws`. The administrator screen shows the seed. Given that record, anyone can run `executeDraw` and reproduce the allocations byte for byte; the integration test "allocates min(spots, entrants) and stores a replayable verification record" does exactly this. The function is pure and does not depend on the order entrants are supplied in, so the replay cannot be gamed by reordering.
+Every drawn cycle has a verification record, and every resident can fetch it for their own building: `GET /api/resident/draws/:cycleId` (linked from each row of the history table as "Verification record"). It contains:
 
-The seed is generated with `crypto.randomBytes` at draw time, so nobody can predict tie-breaks before the draw, and it is recorded, so nobody can dispute them after.
+- `seed`: generated with `crypto.randomBytes` at draw time, so nobody could predict tie-breaks beforehand, and recorded, so nobody can dispute them afterwards.
+- `input`: exactly what `executeDraw` received. Entrants appear as registration ids with their three history numbers (cycles since last allocation, lifetime allocations, unsuccessful registrations); spots appear with their ids and labels. No names, units, or resident ids: a resident can check the draw without learning who else lives in the building. `yourRegistrationId` tells the caller which entry is theirs.
+- `allocations`: what the draw produced, as registration id, spot id, and rank.
+
+Replaying is one function call, and the function is pure:
+
+```ts
+import { executeDraw } from "@parking/domain";
+const record = await fetch("/api/resident/draws/<cycleId>").then((r) => r.json());
+const replay = executeDraw(record.input);
+// replay.allocations must equal record.allocations
+```
+
+The integration test "publishes a record that replays to the stored allocations and hides resident identities" in `apps/api/src/draws/verification.test.ts` does exactly this, and also asserts that no resident id, name, or email appears in the record. Because the function ignores the order entrants are supplied in, the replay cannot be gamed by reordering.
 
 ## Data model
 

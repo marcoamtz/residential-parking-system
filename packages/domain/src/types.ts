@@ -8,7 +8,8 @@ export interface Spot {
 /** One registered resident with the history the ranking rule needs. */
 export interface Entrant {
   registrationId: string;
-  residentId: string;
+  /** Carried for the caller's convenience; the engine never reads it, so a published snapshot may omit it. */
+  residentId?: string;
   /**
    * Distance in cycles from the entrant's most recent allocation, counted from the cycle being
    * drawn. `1` means they held a spot last cycle. `null` means never allocated, which ranks first.

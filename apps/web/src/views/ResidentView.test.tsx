@@ -29,6 +29,7 @@ const base: ResidentStatus = {
   upcoming,
   history: [
     {
+      cycleId: "c2",
       cycleSequence: 2,
       startsOn: "2026-07-01",
       endsOn: "2026-09-30",
@@ -36,6 +37,7 @@ const base: ResidentStatus = {
       spotLabel: "P3",
     },
     {
+      cycleId: "c1",
       cycleSequence: 1,
       startsOn: "2026-04-01",
       endsOn: "2026-06-30",
@@ -55,6 +57,11 @@ describe("ResidentView", () => {
     expect(screen.getByRole("button", { name: "Register for this draw" })).toBeInTheDocument();
     expect(screen.getAllByRole("row")).toHaveLength(3); // header + 2 history rows
     expect(screen.getByText("No spot")).toBeInTheDocument();
+    const links = screen.getAllByRole("link", { name: "Verification record" });
+    expect(links.map((l) => l.getAttribute("href"))).toEqual([
+      "/api/resident/draws/c2",
+      "/api/resident/draws/c1",
+    ]);
   });
 
   it("registers and shows the badge once the status refetch confirms it", async () => {

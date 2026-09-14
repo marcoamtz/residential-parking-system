@@ -39,6 +39,8 @@ Every response carries `X-Request-Id`, taken from the incoming header when a pro
 | GET | `/api/resident/status` | `current`: allocation in the cycle covering today. `next`: result of the next drawn cycle that has not started yet (`allocated`, `not_allocated`, or `not_entered`), present during the week between the scheduled draw and the quarter start. `upcoming`: the open cycle and whether the resident is registered. `history`: every drawn cycle the resident entered. Cached, see below. |
 | POST | `/api/resident/register` | Registers for the building's open cycle. `201`. `409 no_open_cycle` or `409 already_registered`. `403 resident_inactive` after move-out. Runs in a transaction that locks the open cycle row `FOR SHARE`, so a registration can never land after the draw has claimed the cycle ([ADR-0004](adr/0004-draw-idempotency-via-cycle-state.md), amendment). |
 
+| GET | `/api/resident/draws/:cycleId` | Verification record for a drawn cycle in the resident's building: seed, `executedAt`, the exact `input` handed to `executeDraw` (entrants by registration id with their three history numbers, active spots), the resulting `allocations`, and `yourRegistrationId`. No names, units, or resident ids. `409 cycle_not_drawn` while open. |
+
 Withdrawing a registration is intentionally not implemented. It is the documented starter task for onboarding ([06-team-and-communication.md](06-team-and-communication.md)).
 
 ### Admin
@@ -47,7 +49,8 @@ Withdrawing a registration is intentionally not implemented. It is the documente
 | --- | --- | --- |
 | GET | `/api/admin/cycles` | Cycles for the building with registration counts, newest first. |
 | POST | `/api/admin/cycles` | Body `{ startsOn, endsOn }` as `YYYY-MM-DD`. Sequence is assigned server-side. `201`. `409 open_cycle_exists` if a cycle is already open (enforced by a partial unique index). |
-| GET | `/api/admin/cycles/:id` | Cycle, every registration with rank and spot when drawn, and the verification record (seed, executed at). |
+| GET | `/api/admin/cycles/:id` | Cycle, every registration with rank and spot when drawn, and the draw's seed and time. |
+| GET | `/api/admin/cycles/:id/verification` | The same verification record residents get, for the administrator's building. |
 | POST | `/api/admin/cycles/:id/draw` | Runs the draw in one transaction ([ADR-0004](adr/0004-draw-idempotency-via-cycle-state.md)). `201` with counts. `409 cycle_already_drawn` on a repeat. |
 | GET | `/api/admin/spots` | Spots for the building. |
 | POST | `/api/admin/spots` | Body `{ label }`. `409 spot_label_exists` on duplicate. |

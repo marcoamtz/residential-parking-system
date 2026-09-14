@@ -4,6 +4,7 @@ import { Hono } from "hono";
 import { z } from "zod";
 import { requireAuth, requireRole } from "../auth/session";
 import type { AppEnv, Deps } from "../deps";
+import { getDrawVerification } from "../draws/verification";
 import { HttpError, isUniqueViolation } from "../errors";
 import { validate } from "../validation";
 import { createCycle, getCycleDetail, listCycles } from "./cycles";
@@ -39,6 +40,14 @@ export function adminRoutes(deps: Deps) {
         c.req.valid("param").id,
       );
       return c.json(detail);
+    })
+    .get("/cycles/:id/verification", validate("param", idParam), async (c) => {
+      const record = await getDrawVerification(
+        deps.db,
+        c.get("user").buildingId,
+        c.req.valid("param").id,
+      );
+      return c.json(record);
     })
     .post("/cycles/:id/draw", validate("param", idParam), async (c) => {
       const user = c.get("user");

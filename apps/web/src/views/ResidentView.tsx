@@ -137,6 +137,9 @@ export function ResidentView() {
                   <TableHead>Cycle</TableHead>
                   <TableHead>Period</TableHead>
                   <TableHead>Outcome</TableHead>
+                  <TableHead>
+                    <span className="sr-only">Verification</span>
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -153,6 +156,16 @@ export function ResidentView() {
                         <StatusBadge tone="muted">No spot</StatusBadge>
                       )}
                     </TableCell>
+                    <TableCell className="text-right">
+                      <a
+                        href={`/api/resident/draws/${h.cycleId}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
+                      >
+                        Verification record
+                      </a>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -160,7 +173,9 @@ export function ResidentView() {
           )}
           <p className="mt-3 text-xs text-muted-foreground">
             How the draw ranks entrants: longest wait since a spot first, then fewest spots ever,
-            then most attempts, then a seeded coin flip.
+            then most attempts, then a seeded coin flip. Each drawn cycle has a verification record
+            with the seed and the exact ranking inputs; anyone can replay it and get the same
+            result.
           </p>
         </CardContent>
       </Card>

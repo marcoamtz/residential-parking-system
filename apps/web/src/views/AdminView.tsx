@@ -336,8 +336,16 @@ function CycleDetailCard({ cycleId }: { cycleId: string }) {
         )}
         {draw && (
           <p className="mt-3 break-all text-xs text-muted-foreground">
-            Drawn {formatDateTime(draw.executedAt)}. Seed <code>{draw.seed}</code>. Anyone with the
-            seed and the entrant list can replay this draw.
+            Drawn {formatDateTime(draw.executedAt)}. Seed <code>{draw.seed}</code>.{" "}
+            <a
+              href={`/api/admin/cycles/${cycle.id}/verification`}
+              target="_blank"
+              rel="noreferrer"
+              className="underline underline-offset-2 hover:text-foreground"
+            >
+              Verification record
+            </a>{" "}
+            holds the exact inputs; replaying it with executeDraw reproduces these allocations.
           </p>
         )}
       </CardContent>
