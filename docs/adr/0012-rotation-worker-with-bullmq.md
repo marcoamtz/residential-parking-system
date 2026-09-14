@@ -41,3 +41,8 @@ Execution reuses the administrator's code paths, `runDraw` and `createCycle`, so
 ## Amendment, 2026-09-14: recovery after downtime
 
 Independent review showed the original policy was not idempotent after long downtime: an open cycle whose quarter had ended was drawn and the *immediately* following quarter opened, so each same-day run advanced one historical quarter. The policy now opens the first quarter whose draw day is still in the future (`nextOpenablePeriod`), skipping quarters that have already started or ended. Consequences: a newly opened cycle always has a registration window; a second run on the same day is a no-op in every state, which the domain and integration tests now cover; a quarter already in progress when the worker recovers is not opened automatically, and an administrator can open and draw one by hand if the building wants it. An overdue open cycle is still drawn (its entrants get their outcome and history), and the worker logs a warning for that late draw.
+
+## Amendment, 2026-09-14: failure policy per building
+
+A review noted that `rotateAllBuildings` caught each building's error and the run still reported success. The policy is now explicit: one building's failure is logged with its id and never stops the other buildings; after all of them ran, the run as a whole fails (`--once` exits 1, the BullMQ job is marked failed) so platform alerting sees it. The next scheduled run retries the failed building without operator action, because the policy is idempotent and the draw mutex (ADR-0004) makes a repeated attempt safe. Covered by `apps/api/src/scheduler/rotation.test.ts`.
+

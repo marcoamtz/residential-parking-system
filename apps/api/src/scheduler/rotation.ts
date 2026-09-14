@@ -5,7 +5,7 @@ import { and, desc, eq } from "drizzle-orm";
 import { createCycle } from "../admin/cycles";
 import { runDraw } from "../admin/draw";
 import type { Cache } from "../cache";
-import { describeError } from "../errors";
+import { describeError, type ErrorDescription } from "../errors";
 import { logger } from "../observability";
 
 const { buildings, raffleCycles } = schema;
@@ -13,6 +13,8 @@ const { buildings, raffleCycles } = schema;
 export interface RotationResult {
   buildingId: string;
   actions: RotationAction[];
+  /** Set when this building's rotation threw; the other buildings were still processed. */
+  error?: ErrorDescription;
 }
 
 async function cycleWhere(db: Db, buildingId: string, status: "open" | "drawn") {
@@ -68,21 +70,37 @@ export async function rotateBuilding(
   return { buildingId, actions };
 }
 
+/**
+ * Failure policy (ADR-0012, amendment): one building's failure never stops the others. It is
+ * logged with the building id and returned in its result so the caller can fail the run as a whole
+ * (non-zero exit for `--once`, failed job for the worker). The next run retries it, because the
+ * policy is idempotent.
+ */
 export async function rotateAllBuildings(
   db: Db,
   cache: Cache,
   today: string,
   drawLeadDays: number,
+  rotateOne: typeof rotateBuilding = rotateBuilding,
 ): Promise<RotationResult[]> {
   const rows = await db.select({ id: buildings.id }).from(buildings);
   const results: RotationResult[] = [];
   for (const { id } of rows) {
-    // One building's failure must not stop the others; the job reports it and retries next run.
     try {
-      results.push(await rotateBuilding(db, cache, id, today, drawLeadDays));
+      results.push(await rotateOne(db, cache, id, today, drawLeadDays));
     } catch (error) {
-      logger.error({ buildingId: id, err: describeError(error) }, "rotation failed for building");
+      const described = describeError(error);
+      logger.error({ buildingId: id, err: described }, "rotation failed for building");
+      results.push({ buildingId: id, actions: [], error: described });
     }
   }
   return results;
+}
+
+/** Throws when any building failed, after all of them ran, so a job or a one-shot run reports failure. */
+export function assertRotationSucceeded(results: RotationResult[]): void {
+  const failed = results.filter((r) => r.error).map((r) => r.buildingId);
+  if (failed.length > 0) {
+    throw new Error(`rotation failed for ${failed.length} of ${results.length} building(s)`);
+  }
 }

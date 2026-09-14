@@ -3,7 +3,7 @@ import { and, eq } from "drizzle-orm";
 import { afterAll, describe, expect, it } from "vitest";
 import { NullCache } from "../cache";
 import { createTestDb } from "../test/db";
-import { rotateBuilding } from "./rotation";
+import { assertRotationSucceeded, rotateAllBuildings, rotateBuilding } from "./rotation";
 
 const { db, pool } = createTestDb();
 const { buildings, residents, parkingSpots, raffleCycles, raffleRegistrations, spotAllocations } =
@@ -132,5 +132,29 @@ describe("rotateBuilding", () => {
     const b = await building();
     const result = await rotateBuilding(db, new NullCache(), b, "2026-09-13", 7);
     expect(result.actions).toEqual([]);
+  });
+});
+
+describe("rotateAllBuildings", () => {
+  it("isolates one building's failure, reports it, and fails the run after the others ran", async () => {
+    const failing = await building();
+    const healthy = await building();
+    await db.insert(parkingSpots).values([{ buildingId: healthy, label: "S1" }]);
+    await cycleWithEntrants(healthy, 1, "2026-10-01", "2026-12-31", ["a"]);
+
+    const rotateOne: typeof rotateBuilding = async (d, c, id, today, lead) => {
+      if (id === failing) throw new Error('boom for "secret@example.com"');
+      return rotateBuilding(d, c, id, today, lead);
+    };
+    const results = await rotateAllBuildings(db, new NullCache(), "2026-09-25", 7, rotateOne);
+
+    const forHealthy = results.find((r) => r.buildingId === healthy);
+    expect(forHealthy?.error).toBeUndefined();
+    expect(forHealthy?.actions.map((a) => a.type)).toEqual(["draw", "open"]);
+    const forFailing = results.find((r) => r.buildingId === failing);
+    expect(forFailing).toMatchObject({ actions: [], error: { name: "Error" } });
+
+    expect(() => assertRotationSucceeded(results)).toThrow(/failed for 1 of \d+ building/);
+    expect(() => assertRotationSucceeded(results.filter((r) => !r.error))).not.toThrow();
   });
 });

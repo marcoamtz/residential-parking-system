@@ -6,7 +6,7 @@ import { toIsoDate } from "../deps";
 import { loadDotenv, loadEnv } from "../env";
 import { describeError } from "../errors";
 import { logger } from "../observability";
-import { rotateAllBuildings } from "./rotation";
+import { assertRotationSucceeded, rotateAllBuildings } from "./rotation";
 
 /**
  * Quarterly rotation worker (ADR-0012). Two modes:
@@ -15,6 +15,8 @@ import { rotateAllBuildings } from "./rotation";
  *   node dist/scheduler.js --once   run the rotation now and exit (platform cron, manual catch-up)
  *
  * Both call the same rotateAllBuildings(), which reuses the administrator's draw and cycle code.
+ * A building that fails is logged and skipped; every other building still runs, and the run as a
+ * whole then fails (exit 1, or a failed BullMQ job) so the platform's alerting sees it.
  */
 loadDotenv();
 const env = loadEnv();
@@ -25,15 +27,26 @@ const { db, pool } = createDb(env.DATABASE_URL);
 const cacheRedis = createCacheRedis(env.REDIS_URL);
 const cache = new RedisCache(cacheRedis);
 
-const rotate = () => rotateAllBuildings(db, cache, toIsoDate(new Date()), env.DRAW_LEAD_DAYS);
+const rotate = async () => {
+  const results = await rotateAllBuildings(db, cache, toIsoDate(new Date()), env.DRAW_LEAD_DAYS);
+  assertRotationSucceeded(results);
+  return results;
+};
 
 if (once) {
-  const results = await rotate();
-  for (const r of results) {
-    logger.info({ buildingId: r.buildingId, actions: r.actions }, "rotation checked");
+  let failed = false;
+  try {
+    const results = await rotate();
+    for (const r of results) {
+      logger.info({ buildingId: r.buildingId, actions: r.actions }, "rotation checked");
+    }
+  } catch (error) {
+    // Per-building details were already logged by rotateAllBuildings.
+    logger.error({ err: describeError(error) }, "rotation run failed");
+    failed = true;
   }
   await Promise.allSettled([pool.end(), cacheRedis.quit()]);
-  process.exit(0);
+  process.exit(failed ? 1 : 0);
 }
 
 const connection = new Redis(env.REDIS_URL, { maxRetriesPerRequest: null });

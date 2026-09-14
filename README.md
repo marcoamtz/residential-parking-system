@@ -48,7 +48,7 @@ pnpm dev                          # API on http://localhost:3000, web on http://
 pnpm scheduler --once             # optional: today's rotation check (draw due cycles, open the next quarter)
 ```
 
-`pnpm scheduler` without `--once` runs the long-lived worker that does the same check daily at 06:00 UTC ([ADR-0012](docs/adr/0012-rotation-worker-with-bullmq.md)).
+`pnpm scheduler` without `--once` runs the long-lived worker that does the same check daily at 06:00 UTC ([ADR-0012](docs/adr/0012-rotation-worker-with-bullmq.md)). A building whose rotation fails is logged and skipped, the others still run, and the run then exits 1 (or fails the job) so it is noticed; the next run retries it.
 
 No `.env` file is needed for local development: the API falls back to the Docker Compose connection strings and a development-only JWT secret. To override anything, `cp .env.example .env` and edit; the file documents every variable and its default. In production `DATABASE_URL`, `REDIS_URL`, and `JWT_SECRET` are required and the API refuses to start without them; the rest keep their defaults.
 
