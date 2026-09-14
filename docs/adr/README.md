@@ -17,4 +17,6 @@ A record is never edited once accepted. If a decision changes, a new record supe
 | [0009](0009-lpr-as-async-event-subsystem.md) | License plate recognition as an asynchronous event subsystem | Accepted |
 | [0010](0010-react-vite-spa.md) | React single-page app built with Vite | Accepted |
 | [0011](0011-shadcn-ui-from-the-start.md) | shadcn/ui on Radix primitives from the start | Accepted |
-| [0012](0012-rotation-worker-with-bullmq.md) | Quarterly rotation runs as a BullMQ repeatable job in a worker process | Accepted |
+| [0012](0012-rotation-worker-with-bullmq.md) | Quarterly rotation runs as a BullMQ repeatable job in a worker process | Accepted, amended 2026-09-14 |
+| [0013](0013-observability-with-pino-and-prometheus.md) | Observability with pino logs, Prometheus metrics, and split health endpoints | Accepted |
+| [0014](0014-single-file-container-images.md) | Container images from single-file bundles on an unprivileged base | Accepted |

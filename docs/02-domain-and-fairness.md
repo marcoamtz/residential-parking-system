@@ -30,7 +30,8 @@ Two states are enough. Registration is allowed while `open`. The draw flips the 
 The rotation worker runs the same draw on a schedule: an open cycle is drawn `DRAW_LEAD_DAYS` (default 7) before it starts and the following quarter is opened in the same run, so residents know their spot a week ahead and registration never has a gap ([ADR-0012](adr/0012-rotation-worker-with-bullmq.md)). The administrator's button remains for the first cycle and for exceptions, including a quarter already in progress when the worker recovers from downtime, which the policy skips so that every automatically opened cycle has a registration window.
 
 - The **current** cycle for a resident is the drawn cycle whose period contains today. Their spot, if any, is the allocation in that cycle.
-- The **next** cycle is the building's open cycle. A partial unique index guarantees there is at most one.
+- The **upcoming** cycle is the building's open cycle, the one accepting registrations. A partial unique index guarantees there is at most one.
+- The **next** allocation, in the API's vocabulary, is the resident's result in a drawn cycle that has not started yet: the rotation worker draws a week ahead, so for that week a resident has a current spot, a next result, and an upcoming registration.
 - Periods are calendar dates in UTC. Building-local time zones are a known simplification (see limits below).
 
 ## The ranking rule, explained for residents
@@ -139,16 +140,33 @@ The ranking rule needs three numbers per entrant: cycles since last allocation, 
 
 ### Indexes and the queries that use them
 
-| Index | Query |
-| --- | --- |
-| `raffle_registrations (resident_id)` | Resident status and history; a resident's entries across cycles. |
-| `raffle_registrations (cycle_id, resident_id)` (from the unique constraint) | "Is this resident registered for the open cycle"; all entrants of a cycle. |
-| `spot_allocations (cycle_id, spot_id)` (from the unique constraint) | All allocations of a cycle for the administrator results screen. |
-| `spot_allocations (registration_id)` (from the unique constraint) | Join from registration to allocation in history and ranking queries. |
-| `raffle_cycles (building_id, sequence)` (from the unique constraint) | Listing cycles, next sequence number. |
-| `raffle_cycles (building_id) WHERE status = 'open'` | Finding the open cycle, which happens on every status read. |
+Every index in the schema, including the ones PostgreSQL creates for primary keys and unique constraints (`pg_indexes` on a migrated database lists exactly these 21).
 
-No additional indexes are planned until a query plan shows a need. At the data volumes of a residential building every table fits in memory.
+| Table | Index | Kind | Query it serves |
+| --- | --- | --- | --- |
+| `buildings` | `(id)` | primary key | Foreign key targets; the worker's list of buildings |
+| `residents` | `(id)` | primary key | Status lookup by session resident id; joins from registrations |
+| `residents` | `(building_id, email)` | unique | Integrity; seed and future resident import by email within a building |
+| `users` | `(id)` | primary key | Session claims to user; `executed_by_user_id` |
+| `users` | `(email)` | unique | Development login by email |
+| `users` | `(resident_id)` | unique | One login per resident |
+| `parking_spots` | `(id)` | primary key | Joins from allocations |
+| `parking_spots` | `(building_id, label)` | unique | Admin spot list (leading column), label uniqueness |
+| `raffle_cycles` | `(id)` | primary key | Cycle by id in admin, draw, verification |
+| `raffle_cycles` | `(building_id, sequence)` | unique | Cycle list and next sequence number; ranking distances |
+| `raffle_cycles` | `(building_id) WHERE status = 'open'` | partial unique | The open cycle on every status read and registration; one-open-per-building invariant |
+| `raffle_registrations` | `(id)` | primary key | Allocation to registration |
+| `raffle_registrations` | `(cycle_id, resident_id)` | unique | "Is this resident registered for the open cycle"; entrants of a cycle for the draw and the admin results (leading column) |
+| `raffle_registrations` | `(id, cycle_id)` | unique | Target of the composite foreign key from allocations; integrity only |
+| `raffle_registrations` | `(resident_id)` | index | Resident history and ranking inputs across cycles |
+| `spot_allocations` | `(id)` | primary key | Row identity |
+| `spot_allocations` | `(registration_id)` | unique | Join from a registration to its allocation: history, admin results, ranking inputs, status |
+| `spot_allocations` | `(cycle_id, spot_id)` | unique | Verification record and rotation queries by cycle (leading column); spot-once-per-cycle invariant |
+| `spot_allocations` | `(cycle_id, rank)` | unique | Ordered allocations of a cycle; distinct ranks |
+| `raffle_draws` | `(id)` | primary key | Row identity |
+| `raffle_draws` | `(cycle_id)` | unique | Verification record by cycle; one draw per cycle |
+
+The admin results screen starts from `raffle_registrations` filtered by cycle and left-joins allocations through `registration_id`, so it uses the registration index and the allocation `(registration_id)` index, not `(cycle_id, spot_id)`. No further indexes are planned until a query plan shows a need; at residential-building volumes every table fits in memory.
 
 ## Known limits and planned extensions
 

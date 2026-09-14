@@ -50,7 +50,7 @@ pnpm scheduler --once             # optional: today's rotation check (draw due c
 
 `pnpm scheduler` without `--once` runs the long-lived worker that does the same check daily at 06:00 UTC ([ADR-0012](docs/adr/0012-rotation-worker-with-bullmq.md)).
 
-No `.env` file is needed for local development: the API falls back to the Docker Compose connection strings and a development-only JWT secret. To override anything, `cp .env.example .env` and edit. In production every variable in `.env.example` is required and the API refuses to start without them.
+No `.env` file is needed for local development: the API falls back to the Docker Compose connection strings and a development-only JWT secret. To override anything, `cp .env.example .env` and edit; the file documents every variable and its default. In production `DATABASE_URL`, `REDIS_URL`, and `JWT_SECRET` are required and the API refuses to start without them; the rest keep their defaults.
 
 To start over from an empty database: `docker compose down -v`, then repeat from `docker compose up -d --wait`.
 
@@ -69,7 +69,7 @@ Development login is password-less (see [ADR-0008](docs/adr/0008-mock-auth-jwt-c
 | `unit303@parking.local` | Resident, no spot | Entered cycle 2 for the first time and lost, not registered for cycle 3 |
 | `unit<NNN>@parking.local` | Any of units 101–104, 201–204, 301–304 | |
 
-The fixture is deterministic: seeds and ids are pinned, so every machine gets the same history. Running the draw on cycle 3 as the administrator always allocates units 203, 102, 103, and 202 (only the order among the last three depends on the random seed) and leaves 101 and 302 without a spot, because they hold one this quarter.
+The fixture is deterministic: seeds and ids are pinned, so every machine gets the same history. With the fixture's entrants and spots unchanged, running the draw on cycle 3 as the administrator always allocates units 203, 102, 103, and 202 (only the order among the last three depends on the random seed) and leaves 101 and 302 without a spot, because they hold one this quarter; registering another resident first changes the outcome by the rule, not by chance.
 
 Quality gates, also run in CI. `pnpm install` also installs Git hooks (lefthook) that run Biome on staged files, check the commit message format, and run typecheck plus the database-free tests before push:
 

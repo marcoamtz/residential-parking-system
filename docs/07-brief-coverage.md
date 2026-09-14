@@ -15,11 +15,11 @@ Every requirement in the assessment brief, in the brief's order, with its status
 
 | Priority | Where it shows |
 | --- | --- |
-| Architectural decisions | Twelve decision records in [adr/](adr/README.md); system shape in [01-architecture.md](01-architecture.md) |
+| Architectural decisions | Fourteen decision records in [adr/](adr/README.md); system shape in [01-architecture.md](01-architecture.md) |
 | Clear, concise, professional documentation | `README.md` (cold start verified from an empty database), `docs/00`–`07`, endpoint documentation kept in step with routes |
-| Scalability for future growth | Scaling path by stage in [01-architecture.md](01-architecture.md); `building_id` on every tenant table from day one |
+| Scalability for future growth | Scaling path by stage in [01-architecture.md](01-architecture.md); `building_id` on the tenant roots from day one, child tables scoped through their cycle |
 | Tools and strategies for efficiency, maintainability, reliability | [05-tools-and-strategies.md](05-tools-and-strategies.md); CI, hooks, container images, observability |
-| Communication and delegation with a team | [04-delegation-plan.md](04-delegation-plan.md), [06-team-and-communication.md](06-team-and-communication.md), pull requests #1–#16, issues #6–#12 |
+| Communication and delegation with a team | [04-delegation-plan.md](04-delegation-plan.md), [06-team-and-communication.md](06-team-and-communication.md), pull requests #1–#5 and #13 onward, issues #6–#12 |
 
 ## Core features to implement
 
@@ -29,10 +29,10 @@ Every requirement in the assessment brief, in the brief's order, with its status
 | 1b | Allocate available parking spots fairly | Built | `executeDraw` in `packages/domain/src/draw.ts`, rule in [ADR-0003](adr/0003-fairness-ranking-rule.md); unit tests; real-data walkthrough in [02-domain-and-fairness.md](02-domain-and-fairness.md); residents can fetch and replay the verification record of any drawn cycle (`GET /api/resident/draws/:cycleId`, tested in `apps/api/src/draws/verification.test.ts`) |
 | 1c | Rotate assignments every 3 months | Built | `planRotation` in `packages/domain/src/rotation.ts` (9 tests); worker in `apps/api/src/scheduler` (4 PostgreSQL-backed tests); `pnpm scheduler --once` |
 | 1d | Track residents' parking history to prioritize fairness | Built | History tables and the one-query ranking input in `apps/api/src/admin/draw.ts`; history table on the resident's page |
-| 2a | A simple web interface (React, Angular, or plain JavaScript) | Built | `apps/web`: React 19, Vite, shadcn/ui ([ADR-0010](adr/0010-react-vite-spa.md), [ADR-0011](adr/0011-shadcn-ui-from-the-start.md)); 14 component tests |
+| 2a | A simple web interface (React, Angular, or plain JavaScript) | Built | `apps/web`: React 19, Vite, shadcn/ui ([ADR-0010](adr/0010-react-vite-spa.md), [ADR-0011](adr/0011-shadcn-ui-from-the-start.md)); 14 component tests; verified end to end in a headless browser and through the container edge |
 | 2b | Residents can see their parking status and next allocation | Built | `GET /api/resident/status` returns `current`, `next` (the drawn cycle that has not started), `upcoming`, `history`; three cards in `ResidentView` |
 | 3a | Store residents, allocations, and history in a database | Built | PostgreSQL 16, schema in `packages/db/src/schema.ts`, migration `0000_initial_schema.sql`, invariants as constraints ([ADR-0002](adr/0002-postgresql-with-drizzle.md)) |
-| 3b | Implement caching for frequently accessed data | Built | Redis cache-aside for resident status keyed by a per-building version ([ADR-0005](adr/0005-redis-cache-aside-with-version-key.md)); `cache_requests_total{result}` metric |
+| 3b | Implement caching for frequently accessed data | Built | Redis cache-aside for resident status keyed by a per-building version ([ADR-0005](adr/0005-redis-cache-aside-with-version-key.md)); `cache_requests_total{result}` metric; tests against a real Redis for invalidation and against an unreachable port for bounded fall-through (`apps/api/src/cache.test.ts`) |
 
 ## Architectural considerations
 
@@ -63,9 +63,9 @@ Every requirement in the assessment brief, in the brief's order, with its status
 | Requirement | Status | Evidence |
 | --- | --- | --- |
 | Secure storage of resident data | Built and documented | Minimal personal data (name, unit, email); no personal data in logs by construction; TLS and encrypted backups in the reference topology; column-level encryption specified for plates when they arrive ([ADR-0008](adr/0008-mock-auth-jwt-cookie-rbac.md), [05-tools-and-strategies.md](05-tools-and-strategies.md)) |
-| Authentication and authorization (at least a basic mock) | Built | Password-less development login behind `MOCK_AUTH`; signed JWT in an `HttpOnly`, `Secure`, `SameSite=Strict` cookie; role middleware; resident identity from claims only; admin queries scoped by building. Tests in `apps/api/src/app.test.ts` and `admin/draw.test.ts` |
-| Protection against common vulnerabilities (SQL injection, XSS) | Built | Parameterized queries throughout; React escaping; custom-header CSRF guard; Zod whitelists. Threat-to-control table in [05-tools-and-strategies.md](05-tools-and-strategies.md) |
-| Cloud security best practices if deploying | Documented | Least-privilege roles, private subnets, secrets in a managed store, image scanning, infrastructure as code, in [05-tools-and-strategies.md](05-tools-and-strategies.md) and the deployment diagram |
+| Authentication and authorization (at least a basic mock) | Built | Password-less development login behind `MOCK_AUTH`; signed JWT in an `HttpOnly`, `Secure`, `SameSite=Strict` cookie; role middleware; resident identity from claims only; admin queries scoped by building. Tests: full role matrix (401, 403 both directions, tampered session, development login disabled) in `apps/api/src/app.test.ts`; cross-building draw in `admin/draw.test.ts` |
+| Protection against common vulnerabilities (SQL injection, XSS) | Built | Parameterized queries throughout; React escaping; custom-header CSRF guard; Zod whitelists; security headers at the API and the nginx edge (CSP, nosniff, framing, referrer policy). Threat-to-control table in [05-tools-and-strategies.md](05-tools-and-strategies.md) |
+| Cloud security best practices if deploying | Built and documented | Non-root containers (api uid 1000, web uid 101), informational Trivy scan in CI, `/api/metrics` blocked at the edge; least-privilege roles, private subnets, secrets in a managed store, infrastructure as code in [05-tools-and-strategies.md](05-tools-and-strategies.md) and the deployment diagram |
 
 ## Deliverables
 
@@ -81,10 +81,10 @@ Every requirement in the assessment brief, in the brief's order, with its status
 | 3b | Performance strategies (caching, load balancing, indexing) | Documented | Performance section of [05-tools-and-strategies.md](05-tools-and-strategies.md) |
 | 3c | Security strategies (data protection, auth, cloud) | Documented | Security section of [05-tools-and-strategies.md](05-tools-and-strategies.md) |
 | 4a | Clear, structured documentation another team member could follow | Built and documented | `README.md` cold-start sequence verified from an empty database; `docs/` numbered by deliverable; endpoint docs in [03-api.md](03-api.md) |
-| 4b | Communication plan (code reviews, sprint planning, decision-making) | Documented and practiced | [06-team-and-communication.md](06-team-and-communication.md); every change since the bootstrap landed through a pull request with the template; branch protection binds administrators |
+| 4b | Communication plan (code reviews, sprint planning, decision-making) | Documented and practiced | [06-team-and-communication.md](06-team-and-communication.md); the first 30 commits (bootstrap through docs) were pushed directly on 2026-09-06 to 2026-09-13; since PR #1 on 2026-09-13 every change has landed through a pull request with the template, and branch protection binds administrators |
 | 4c | How to onboard or guide a junior developer | Documented | Day-one checklist and the withdraw-registration starter brief in [06-team-and-communication.md](06-team-and-communication.md); issue #12 |
-| 5a | Proof-of-concept of the core allocation system | Built | Domain, API, web, worker; 57 automated tests (24 domain, 19 API, 14 web) run in CI against real PostgreSQL and Redis; container images built in CI |
+| 5a | Proof-of-concept of the core allocation system | Built | Domain, API, web, worker; 91 automated tests (27 domain, 50 API, 14 web) run in CI against real PostgreSQL and Redis; container images built, scanned, and rehearsed as a running stack in CI |
 
 ## Deliberately not built
 
-Listed so the omissions are decisions, not gaps: license plate recognition (planned and delegated), a real identity provider (swap path in ADR-0008), Row-Level Security and connection pooling (triggers in 01-architecture.md), column encryption for plates (applies when plates exist), a live cloud environment (images and topology exist; no account), and the withdraw-registration endpoint (the onboarding task, issue #12).
+Listed so the omissions are decisions, not gaps: license plate recognition (planned and delegated), a real identity provider (swap path in ADR-0008), Row-Level Security and PgBouncer (triggers in 01-architecture.md; application-side pooling exists), column encryption for plates (applies when plates exist), a live cloud environment (images and topology exist; no account), and the withdraw-registration endpoint (the onboarding task, issue #12).

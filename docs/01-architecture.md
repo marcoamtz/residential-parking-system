@@ -1,6 +1,6 @@
 # Architecture
 
-The system is a modular monolith: one API process, one PostgreSQL database, one Redis instance, and a static web client. Boundaries are enforced at the package level so that the parts most likely to change (the camera subsystem, the identity provider, the scheduler) attach at seams that already exist. Decisions with lasting consequences are recorded in [docs/adr](adr/README.md); this document shows how they fit together.
+The system is a modular monolith: one API process, one PostgreSQL database, one Redis instance, and a static web client. Boundaries are kept at the package level (pnpm strict resolution plus `pnpm check:boundaries` in CI and before push) so that the parts most likely to change (the camera subsystem, the identity provider, the scheduler) attach at seams that already exist. Decisions with lasting consequences are recorded in [docs/adr](adr/README.md); this document shows how they fit together.
 
 ## System overview
 
@@ -38,11 +38,11 @@ flowchart LR
   subgraph future ["Future: license plate recognition (ADR-0009)"]
     cam["Edge worker<br/>camera + inference"]
     hook["Ingestion webhook<br/>HMAC-signed"]
-    worker["Occupancy worker"]
+    occ["Occupancy worker"]
     cam -. "plate_detected event" .-> hook
     hook -. enqueue .-> redis
-    redis -. drain .-> worker
-    worker -. "vehicle_events" .-> pg
+    redis -. drain .-> occ
+    occ -. "vehicle_events" .-> pg
   end
 ```
 
@@ -66,7 +66,7 @@ sequenceDiagram
     R-->>A: cached JSON
   else miss
     R-->>A: nil
-    A->>P: resident, current allocation, open cycle, history (4 queries)
+    A->>P: resident, current, next (drawn, not started), open cycle, history (5 queries)
     P-->>A: rows
     A->>R: SET key EX 300
   end
@@ -128,7 +128,7 @@ Draw volume never needs to scale: four draws per building per year is not a thro
 | Stage | What changes | What does not |
 | --- | --- | --- |
 | One building (today) | Single API instance, one PostgreSQL, one Redis. Docker Compose locally. | |
-| Many buildings, one operator | `building_id` is already on every tenant table and every query is already scoped by it. Add Row-Level Security policies keyed on a session variable so a missed `WHERE` in application code cannot leak across buildings. Run two or more API instances behind a load balancer; the API is stateless (session in cookie). Add a connection pooler (PgBouncer, transaction mode) once instance count times pool size approaches PostgreSQL's connection limit. | Schema, domain code, cache scheme (already keyed per building). |
+| Many buildings, one operator | `building_id` is on the tenant roots (`residents`, `users`, `parking_spots`, `raffle_cycles`); registrations, allocations, and draws belong to a building through their cycle, and every admin and resident query is scoped by the session's building. Add Row-Level Security: direct policies on the root tables, join-based policies (through `raffle_cycles`) on the three child tables, or a denormalized `building_id` with composite foreign keys if policy performance requires it. Run two or more API instances behind a load balancer; the API is stateless (session in cookie). Add a connection pooler (PgBouncer, transaction mode) once instance count times pool size approaches PostgreSQL's connection limit. | Schema, domain code, cache scheme (already keyed per building). |
 | Many operators | Choose between shared schema with RLS (cheapest), schema per tenant (stronger isolation, same instance), or database per tenant (regulatory isolation). The code path is identical; the connection string becomes tenant-resolved. | Domain, API, web. |
 | Camera telemetry | Bursts land on the Redis queue, a separate worker drains them. Add read replicas only if the occupancy dashboard becomes read-heavy; the allocation path never needs them. | The draw and the resident status path. |
 

@@ -13,7 +13,7 @@ PostgreSQL as the only source of truth. Invariants are expressed as constraints,
 - `UNIQUE (cycle_id, spot_id)` on allocations.
 - `UNIQUE (registration_id)` on allocations, where the registration row already carries `(cycle_id, resident_id)` uniqueness. Only entrants can win.
 - `UNIQUE (building_id, sequence)` on cycles so ranking can use integer cycle distances instead of dates.
-- Every tenant-owned table carries `building_id`.
+- The tenant roots (`residents`, `users`, `parking_spots`, `raffle_cycles`) carry `building_id`; registrations, allocations, and draws belong to a building through their cycle. Every query is scoped by the session's building.
 
 Drizzle ORM for schema definition, migrations, and queries. Schema is TypeScript, so types flow to the API and web packages without code generation.
 

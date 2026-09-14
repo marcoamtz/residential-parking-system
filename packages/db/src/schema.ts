@@ -18,7 +18,8 @@ import {
 
 /**
  * Invariants live here as constraints, not in application code (ADR-0002).
- * Every table that holds resident-visible data carries a `building_id`.
+ * Tenant roots (residents, users, parking_spots, raffle_cycles) carry a `building_id`; registrations,
+ * allocations, and draws belong to a building through their cycle (see docs/01-architecture.md).
  */
 
 export const cycleStatus = pgEnum("cycle_status", ["open", "drawn"]);

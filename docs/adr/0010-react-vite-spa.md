@@ -1,6 +1,6 @@
 # ADR-0010: React single-page app built with Vite
 
-Status: Accepted, 2026-09-06
+Status: Accepted, 2026-09-06. Styling sentence amended by [ADR-0011](0011-shadcn-ui-from-the-start.md) on 2026-09-08.
 
 ## Context
 

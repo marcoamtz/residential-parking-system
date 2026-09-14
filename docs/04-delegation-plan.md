@@ -13,7 +13,7 @@ The prototype was built in the order below. Status reflects what exists on `main
 | Draw transaction (`apps/api/src/admin/draw.ts`) | Me | Domain, schema | Single transaction, state-transition mutex, verification record; integration tests for replay, 409, concurrency, tenant scoping | Done, 5 tests |
 | Session and authorization (`apps/api/src/auth`) | Me | Nothing | JWT cookie, role middleware, CSRF header check; resident id only from claims | Done |
 | Resident routes and status query | Delegable | Schema, auth | Status shape agreed with web; register handles 409s; cache bump after write | Done |
-| Admin routes (cycles, spots) | Delegable | Schema, auth | CRUD with building scoping; 409 on partial unique violation | Done |
+| Admin routes (cycles, spots) | Delegable | Schema, auth | Cycle list, create, detail, draw, verification; spot list, create, activate/deactivate; all scoped by building; 409 on partial unique violation | Done |
 | Cache adapter (`apps/api/src/cache.ts`) | Delegable | Nothing | `Cache` interface, Redis and null implementations, degrade on failure | Done |
 | Web: sign-in and resident view | Delegable | API types (or mocks) | Status, register, history; keyboard reachable; error states | Done |
 | Web: admin view | Delegable | API types (or mocks) | Cycles, draw confirmation dialog, results with seed, spots | Done |
@@ -48,7 +48,7 @@ The rule: I keep what encodes an invariant or a contract other people depend on.
 
 - Web views against the typed client or against mocks.
 - Cache adapters behind the `Cache` interface.
-- Admin CRUD routes, with the building-scoping pattern already established in the first route.
+- Admin routes (cycle and spot management), with the building-scoping pattern already established in the first route.
 - CI pipeline, seed data, fixtures.
 - Endpoint documentation generated from route definitions.
 - Anything with a clear "done" that a reviewer can verify from a test.
@@ -84,7 +84,7 @@ Each stream is a GitHub issue under the milestone [License plate recognition](ht
 | Event contract | Me | Versioned JSON schema: `camera_id`, `plate`, `direction` (`enter`/`exit`), `captured_at`, `confidence`, `evidence_ref`. Published as a Zod schema in `packages/domain` and as JSON Schema for non-TypeScript producers. | Recorded fixture files exist; both producer and consumer tests validate against them. |
 | Ingestion webhook | Me | `POST /api/lpr/events` with per-camera shared secret, HMAC-SHA256 over the raw body, replay protection by timestamp window, rate limiting, `202 Accepted` after enqueue. | Integration test: valid signature accepted, tampered body rejected, stale timestamp rejected, burst of 500 events acknowledged in under a second. |
 | Persistence and occupancy model | Me | `vehicle_events` table, `vehicles` table linking plates (encrypted at the column level) to residents, spot occupancy state machine (`vacant`, `occupied_by_holder`, `occupied_by_other`, `unknown`). | Migration applies; state machine unit-tested; unmatched plates land in a review queue for the administrator. |
-| Edge capture and inference | ML engineer | Container that reads RTSP, detects plates, runs recognition (YOLO-family detector plus an OCR or ALPR model), emits contract events. | Against the recorded fixture video set: precision and recall targets agreed up front, latency under 2 seconds from frame to event on the target hardware. Emits events that pass the contract validator. |
+| Edge capture and inference | ML engineer | Container that reads RTSP, detects plates, runs recognition (YOLO-family detector plus an OCR or ALPR model), emits contract events. Owns model selection and, if off-the-shelf models miss the agreed targets on the fixture set, a time-boxed adaptation (fine-tuning on recorded frames, or a vendor ALPR SDK); the decision to fund training beyond that time box is mine, recorded in an ADR. | Against the recorded fixture video set: precision and recall targets agreed up front, latency under 2 seconds from frame to event on the target hardware. Emits events that pass the contract validator. |
 | Edge hardware and network | IoT / DevOps engineer | Device selection (Jetson-class or equivalent), isolated camera VLAN, outbound-only connectivity, watchdog and auto-restart, remote log shipping. | Device recovers unattended from power loss and network loss; secrets provisioned per device; no inbound ports. |
 | Live UI | Front-end developer | Server-sent events subscription in the web app; occupancy shown on the resident's spot card and on an administrator floor list. | Reconnects after network loss; no polling; accessible status announcements. |
 
@@ -111,7 +111,8 @@ Sizing in ideal engineering days, assuming one person per stream and the staging
 | Stream | Ideal days | Main assumption |
 | --- | --- | --- |
 | Contract, fixtures, webhook, worker, occupancy model | 8 | No vendor-specific camera payloads in the first iteration |
-| Edge capture and inference | 15 | An off-the-shelf detector and recognizer reach the agreed accuracy on the fixture set; no custom training |
+| Edge capture and inference | 15 | An off-the-shelf detector and recognizer reach the agreed accuracy on the fixture set |
+| Model adaptation, if needed | 10, time-boxed | Fine-tuning on recorded frames or a vendor SDK; triggered only if the row above misses its targets; owned by the ML engineer, funded by my decision |
 | Edge hardware and network | 6 | One building, one to four cameras, existing network with VLAN capability |
 | Live UI | 4 | SSE, no WebSocket infrastructure needed |
 | Integration and rollout | 5 | One week of measurement in staging before the first building |
