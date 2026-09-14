@@ -32,8 +32,9 @@ services:
       dockerfile: apps/api/Dockerfile
     command: ["node", "dist/scheduler.js"]
     # The worker serves no HTTP; the image's HTTP health check would never pass. Liveness = process alive.
+    # Anchored so the probe's own `sh -c` command line (which contains the pattern) never matches.
     healthcheck:
-      test: ["CMD-SHELL", "pgrep -f 'dist/scheduler.js' > /dev/null || exit 1"]
+      test: ["CMD-SHELL", "pgrep -f '^node dist/scheduler\\.js$' > /dev/null || exit 1"]
       interval: 10s
       timeout: 3s
       retries: 5

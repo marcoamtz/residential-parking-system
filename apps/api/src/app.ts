@@ -19,15 +19,20 @@ export function createApp(deps: Deps) {
     new Hono<AppEnv>()
       // Honors an incoming X-Request-Id (from the load balancer or nginx) or generates one.
       .use(requestId())
-      // JSON API: no framing, no sniffing, no referrer leakage; HSTS is added by the TLS edge.
+      // JSON API: no framing, no sniffing, no referrer leakage. HSTS is left to the TLS edge:
+      // this process never terminates TLS, so it must not claim the origin is HTTPS-only.
       .use(
         secureHeaders({
           contentSecurityPolicy: { defaultSrc: ["'none'"], frameAncestors: ["'none'"] },
+          strictTransportSecurity: false,
+          xFrameOptions: "DENY",
         }),
       )
       .use(requestLogging)
       .use(requireCustomHeader)
       .onError(errorHandler)
+      // Unmatched routes follow the same { code, message } contract as every other error.
+      .notFound((c) => c.json({ code: "not_found", message: "Route not found" }, 404))
       .route("/api", healthRoutes(deps))
       .route("/api/auth", authRoutes(deps))
       .route("/api/resident", residentRoutes(deps))

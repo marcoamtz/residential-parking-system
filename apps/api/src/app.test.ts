@@ -96,10 +96,19 @@ describe("error contract", () => {
   it("sets security headers on every response", async () => {
     const res = await app.request("/api/health");
     expect(res.headers.get("x-content-type-options")).toBe("nosniff");
-    expect(res.headers.get("x-frame-options")).toBe("SAMEORIGIN");
+    expect(res.headers.get("x-frame-options")).toBe("DENY");
     expect(res.headers.get("referrer-policy")).toBe("no-referrer");
     expect(res.headers.get("content-security-policy")).toContain("default-src 'none'");
     expect(res.headers.get("x-powered-by")).toBeNull();
+    // HSTS belongs to the TLS edge; the API does not terminate TLS.
+    expect(res.headers.get("strict-transport-security")).toBeNull();
+  });
+
+  it("answers unmatched routes with the JSON error contract", async () => {
+    const res = await app.request("/api/nope");
+    expect(res.status).toBe(404);
+    expect(res.headers.get("content-type")).toContain("application/json");
+    expect(await res.json()).toEqual({ code: "not_found", message: "Route not found" });
   });
 
   it("echoes a supplied request id and generates one otherwise", async () => {

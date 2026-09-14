@@ -106,7 +106,17 @@ jobs:
       - name: Every service healthy, including the worker
         run: |
           docker compose -f docker-compose.yml -f docker-compose.images.yml ps --format '{{.Service}} {{.Health}}'
-          test "$(docker compose -f docker-compose.yml -f docker-compose.images.yml ps --format '{{.Health}}' | grep -vc healthy)" = "0"
+          test "$(docker compose -f docker-compose.yml -f docker-compose.images.yml ps --format '{{.Health}}' | grep -vxc healthy)" = "0"
+      - name: Health checks fail when the condition they test is absent
+        run: |
+          set -eux
+          # The worker probe (exact healthcheck command) must match the real worker and must not
+          # match a container without one; the previous unanchored pattern matched its own shell.
+          probe="pgrep -f '^node dist/scheduler\.js$' > /dev/null || exit 1"
+          docker compose -f docker-compose.yml -f docker-compose.images.yml exec -T scheduler sh -c "$probe"
+          ! docker compose -f docker-compose.yml -f docker-compose.images.yml run --rm --no-deps -T --entrypoint sh api -c "$probe" </dev/null
+          # The health assertion above must reject an unhealthy service.
+          test "$(printf 'healthy\nunhealthy\n' | grep -vxc healthy)" = "1"
       - name: Edge behaves as documented
         run: |
           set -eux

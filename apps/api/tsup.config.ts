@@ -1,9 +1,10 @@
 import { defineConfig } from "tsup";
 
 /**
- * Single-file bundles for the container image: the API server and the migrator.
- * Everything is bundled, including workspace packages and node_modules, so the runtime
+ * Single-file bundles for the container image: the API server, the rotation worker, and the
+ * migrator. Everything is bundled, including workspace packages and node_modules, so the runtime
  * image needs Node.js and dist/ only. pg-native is an optional native binding pg probes for.
+ * Code splitting is off so each entrypoint is one self-contained file (ADR-0014).
  */
 export default defineConfig({
   entry: {
@@ -12,6 +13,7 @@ export default defineConfig({
     migrate: "../../packages/db/src/migrate.ts",
   },
   format: ["esm"],
+  splitting: false,
   target: "node22",
   platform: "node",
   clean: true,
