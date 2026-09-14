@@ -5,8 +5,9 @@ import type { AppEnv } from "./deps";
 
 /**
  * Structured logs and Prometheus metrics. One JSON line per request with the request id, method,
- * matched route, status, and duration. Never the body, never the query string, never a cookie:
- * resident data stays out of logs by construction (ADR-0008).
+ * matched route, path, status, and duration. Never the body, never the query string, never a
+ * cookie. The path is logged because unmatched routes need it; this API's paths carry route names
+ * and UUIDs only, never resident data (ADR-0008). Errors are logged through `describeError`.
  */
 export const logger = pino({
   level: process.env.LOG_LEVEL ?? "info",

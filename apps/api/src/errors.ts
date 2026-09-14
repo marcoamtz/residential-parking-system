@@ -34,19 +34,27 @@ export interface ErrorDescription {
   cause?: ErrorDescription;
 }
 
+/** PostgreSQL SQLSTATE: five characters, digits and upper-case letters. */
+const SQLSTATE = /^[0-9A-Z]{5}$/;
+
 /**
  * What an error is allowed to look like in a log line. Drizzle puts the bound parameters in the
- * message and on `.params`; PostgreSQL puts row values in `detail`. Both are dropped: the SQL text
+ * message and on `.params`; PostgreSQL puts row values in `detail` and quotes offending values in
+ * its message (`invalid input syntax for type uuid: "..."`). All three are dropped: the SQL text
  * with its placeholders, the SQLSTATE, and the constraint name are enough to debug, and resident
- * data must never reach the logs (ADR-0008).
+ * data must never reach the logs (ADR-0008). Every log site that receives an error uses this,
+ * not only the HTTP error handler.
  */
 export function describeError(error: unknown, depth = 0): ErrorDescription {
   if (!(error instanceof Error)) {
     return { name: "NonError", message: typeof error === "string" ? error : String(typeof error) };
   }
-  const message = error.message.split(/\r?\nparams:/i)[0]?.trim() ?? "";
-  const description: ErrorDescription = { name: error.name, message };
   const code = (error as { code?: unknown }).code;
+  let message = error.message.split(/\r?\nparams:/i)[0]?.trim() ?? "";
+  // A database error quotes identifiers and values alike; the constraint name survives in its own
+  // field and the statement text in the wrapping error, so nothing debuggable is lost.
+  if (typeof code === "string" && SQLSTATE.test(code)) message = message.replace(/"[^"]*"/g, '"?"');
+  const description: ErrorDescription = { name: error.name, message };
   if (typeof code === "string") description.code = code;
   const constraint = (error as { constraint?: unknown }).constraint;
   if (typeof constraint === "string") description.constraint = constraint;

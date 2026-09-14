@@ -44,6 +44,29 @@ describe("describeError", () => {
     expect(described.stack).not.toContain(SENSITIVE);
   });
 
+  it("masks values PostgreSQL quotes in its own message", () => {
+    const pg = Object.assign(new Error(`invalid input syntax for type uuid: "${SENSITIVE}"`), {
+      name: "error",
+      code: "22P02",
+    });
+    const wrapped = new Error(
+      `Failed query: select * from "residents" where "id" = $1\nparams: ${SENSITIVE}`,
+      { cause: pg },
+    );
+
+    const described = describeError(wrapped);
+    const serialized = JSON.stringify(described);
+
+    expect(serialized).not.toContain(SENSITIVE);
+    expect(described.cause).toMatchObject({
+      code: "22P02",
+      message: 'invalid input syntax for type uuid: "?"',
+    });
+    expect(described.cause?.stack).not.toContain(SENSITIVE);
+    // Quoted identifiers in the wrapping query text are not database values and stay readable.
+    expect(described.message).toContain('"residents"');
+  });
+
   it("does not carry arbitrary properties such as params or detail", () => {
     const described = describeError(drizzleLikeError()) as unknown as Record<string, unknown>;
     expect(described).not.toHaveProperty("params");

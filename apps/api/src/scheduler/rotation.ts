@@ -5,6 +5,7 @@ import { and, desc, eq } from "drizzle-orm";
 import { createCycle } from "../admin/cycles";
 import { runDraw } from "../admin/draw";
 import type { Cache } from "../cache";
+import { describeError } from "../errors";
 import { logger } from "../observability";
 
 const { buildings, raffleCycles } = schema;
@@ -80,7 +81,7 @@ export async function rotateAllBuildings(
     try {
       results.push(await rotateBuilding(db, cache, id, today, drawLeadDays));
     } catch (error) {
-      logger.error({ buildingId: id, err: error }, "rotation failed for building");
+      logger.error({ buildingId: id, err: describeError(error) }, "rotation failed for building");
     }
   }
   return results;

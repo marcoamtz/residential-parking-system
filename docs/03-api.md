@@ -71,6 +71,6 @@ Withdrawing a registration is intentionally not implemented. It is the documente
 `GET /api/resident/status` is served cache-aside ([ADR-0005](adr/0005-redis-cache-aside-with-version-key.md)):
 
 - Version key: `building:{buildingId}:version`, an integer.
-- Value key: `building:{buildingId}:v{version}:resident:{residentId}:status`, TTL 300 seconds.
+- Value key: `building:{buildingId}:v{version}:s{schema}:resident:{residentId}:status`, TTL 300 seconds. `schema` is a constant in `apps/api/src/cache.ts`, bumped when the payload shape changes so a deploy never serves entries written by the previous release.
 - Writes that bump the version after their transaction commits: registration, cycle creation, draw, spot creation, spot activation change.
-- If Redis is unreachable the first failure is logged once and every read falls through to PostgreSQL within about 300 ms (no offline queue, short connect and command timeouts). Nothing depends on the cache for correctness. Verified by `apps/api/src/cache.test.ts` against an unreachable port and by a live measurement: status reads in 9–30 ms with Redis stopped.
+- If Redis is unreachable the first failure is logged once and every read falls through to PostgreSQL. Each command times out after 300 ms (no offline queue), and the first failure bypasses the cache for one second, so a read pays for at most one timeout rather than one per command (version, value, write-back). Unreachable Redis fails immediately; a stalled one costs about 300 ms once per second. Nothing depends on the cache for correctness. Verified by `apps/api/src/cache.test.ts` against an unreachable port and a stalled client, and by a live measurement: status reads in 9–30 ms with Redis stopped.

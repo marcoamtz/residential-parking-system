@@ -1,5 +1,13 @@
+import type { Redis } from "ioredis";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import { type Cache, createCacheRedis, NullCache, RedisCache, withCache } from "./cache";
+import {
+  CACHE_SCHEMA,
+  type Cache,
+  createCacheRedis,
+  NullCache,
+  RedisCache,
+  withCache,
+} from "./cache";
 
 /** In-memory Cache with the same semantics as RedisCache, for unit-testing withCache. */
 class MemoryCache implements Cache {
@@ -34,7 +42,10 @@ describe("withCache", () => {
     await cache.bump("b");
     expect(await withCache(cache, "b", "status", 60, load)).toEqual({ v: 2 });
     expect(load).toHaveBeenCalledTimes(2);
-    expect([...cache.store.keys()]).toEqual(["building:b:v0:status", "building:b:v1:status"]);
+    expect([...cache.store.keys()]).toEqual([
+      `building:b:v0:s${CACHE_SCHEMA}:status`,
+      `building:b:v1:s${CACHE_SCHEMA}:status`,
+    ]);
   });
 
   it("keeps buildings independent: bumping one does not invalidate another", async () => {
@@ -80,17 +91,65 @@ describe("RedisCache against Redis", () => {
 
     expect(await withCache(cache, building, "status", 60, load)).toEqual({ n: 1 });
     expect(await withCache(cache, building, "status", 60, load)).toEqual({ n: 1 });
-    expect(await redis.get(`building:${building}:v0:status`)).toBe(JSON.stringify({ n: 1 }));
+    expect(await redis.get(`building:${building}:v0:s${CACHE_SCHEMA}:status`)).toBe(
+      JSON.stringify({ n: 1 }),
+    );
 
     await cache.bump(building);
     expect(await cache.getVersion(building)).toBe(1);
     expect(await withCache(cache, building, "status", 60, load)).toEqual({ n: 2 });
-    expect(await redis.ttl(`building:${building}:v1:status`)).toBeGreaterThan(0);
+    expect(await redis.ttl(`building:${building}:v1:s${CACHE_SCHEMA}:status`)).toBeGreaterThan(0);
     expect(load).toHaveBeenCalledTimes(2);
   });
 
   it("reports ready", async () => {
     expect(await cache.ping()).toBe("ok");
+  });
+});
+
+describe("RedisCache with Redis stalled", () => {
+  /** A connected client whose every command hangs until the command timeout, like `CLIENT PAUSE`. */
+  function stalledRedis(timeoutMs: number) {
+    const calls = { get: 0, set: 0, incr: 0 };
+    const stall = () =>
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("Command timed out")), timeoutMs),
+      );
+    const redis = {
+      get: async () => {
+        calls.get += 1;
+        return stall();
+      },
+      set: async () => {
+        calls.set += 1;
+        return stall();
+      },
+      incr: async () => {
+        calls.incr += 1;
+        return stall();
+      },
+    } as unknown as Redis;
+    return { redis, calls };
+  }
+
+  it("pays for one timeout per read, not one per command, and probes again after the bypass", async () => {
+    let clock = 0;
+    const { redis, calls } = stalledRedis(20);
+    const cache = new RedisCache(redis, () => clock);
+    const load = vi.fn().mockResolvedValue({ fresh: true });
+
+    expect(await withCache(cache, "b", "status", 60, load)).toEqual({ fresh: true });
+    // Version lookup timed out; the value read and the write-back were skipped.
+    expect(calls).toEqual({ get: 1, set: 0, incr: 0 });
+
+    await withCache(cache, "b", "status", 60, load);
+    await cache.bump("b");
+    expect(calls).toEqual({ get: 1, set: 0, incr: 0 });
+
+    clock = 1_001;
+    await withCache(cache, "b", "status", 60, load);
+    expect(calls.get).toBe(2);
+    expect(load).toHaveBeenCalledTimes(3);
   });
 });
 

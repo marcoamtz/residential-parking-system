@@ -4,6 +4,7 @@ import { Redis } from "ioredis";
 import { createCacheRedis, RedisCache } from "../cache";
 import { toIsoDate } from "../deps";
 import { loadDotenv, loadEnv } from "../env";
+import { describeError } from "../errors";
 import { logger } from "../observability";
 import { rotateAllBuildings } from "./rotation";
 
@@ -56,7 +57,7 @@ worker.on("completed", (job, results: Awaited<ReturnType<typeof rotate>>) => {
   );
 });
 worker.on("failed", (job, error) => {
-  logger.error({ jobId: job?.id, err: error }, "rotation failed");
+  logger.error({ jobId: job?.id, err: describeError(error) }, "rotation failed");
 });
 logger.info(
   { cron: env.ROTATION_CRON, leadDays: env.DRAW_LEAD_DAYS },

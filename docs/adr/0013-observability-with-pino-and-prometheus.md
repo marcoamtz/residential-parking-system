@@ -8,7 +8,7 @@ The API needed three things before it could be operated: a way to follow one req
 
 ## Decision
 
-- **Logs**: `pino`, JSON to stdout, one line per request with a fixed field set: request id, method, matched route pattern, path, status, duration. `X-Request-Id` is honored from a proxy or generated (`hono/request-id`) and echoed. Unhandled errors go through `describeError`, which keeps the SQL text with placeholders, the SQLSTATE, and the constraint name, and drops bound parameters and row values.
+- **Logs**: `pino`, JSON to stdout, one line per request with a fixed field set: request id, method, matched route pattern, path, status, duration. `X-Request-Id` is honored from a proxy or generated (`hono/request-id`) and echoed. Paths are logged for unmatched-route debugging; in this API they carry route names and UUIDs only, never resident data. Every logged error, in the HTTP handler, the rotation worker, and the cache client, goes through `describeError`, which keeps the SQL text with placeholders, the SQLSTATE, and the constraint name, and drops bound parameters, row values, and the values PostgreSQL quotes in its messages.
 - **Metrics**: `prom-client` at `/api/metrics`: `http_requests_total` and `http_request_duration_seconds` by method and route pattern (bounded cardinality), `cache_requests_total{result}`, `draw_duration_seconds` (successful draws only), Node.js defaults. Not routed by the load balancer; blocked at the nginx edge.
 - **Health**: `/api/health` is liveness and touches nothing; `/api/ready` runs `select 1` and returns 503 without PostgreSQL; Redis is reported but never fatal, matching ADR-0005.
 

@@ -1,4 +1,5 @@
 import { Redis, type RedisOptions } from "ioredis";
+import { describeError } from "./errors";
 import { cacheRequests, logger } from "./observability";
 
 /**
@@ -36,10 +37,17 @@ export function createCacheRedis(url: string, overrides: RedisOptions = {}): Red
   return redis;
 }
 
+/** After one failed command the cache is skipped for this long, so one request pays for one timeout. */
+const BYPASS_AFTER_FAILURE_MS = 1_000;
+
 export class RedisCache implements Cache {
   private warned = false;
+  private bypassUntil = 0;
 
-  constructor(private readonly redis: Redis) {}
+  constructor(
+    private readonly redis: Redis,
+    private readonly now: () => number = Date.now,
+  ) {}
 
   async getVersion(buildingId: string): Promise<number> {
     const raw = await this.guard(() => this.redis.get(versionKey(buildingId)));
@@ -68,12 +76,16 @@ export class RedisCache implements Cache {
   }
 
   private async guard<T>(operation: () => Promise<T>): Promise<T | null> {
+    if (this.now() < this.bypassUntil) return null;
     try {
       return await operation();
     } catch (error) {
+      // A stalled server times out every command; without this, a read would wait for the version,
+      // the value, and the write-back in turn. Bypass briefly, then probe again.
+      this.bypassUntil = this.now() + BYPASS_AFTER_FAILURE_MS;
       if (!this.warned) {
         this.warned = true;
-        logger.warn({ err: error }, "cache unavailable, serving from database");
+        logger.warn({ err: describeError(error) }, "cache unavailable, serving from database");
       }
       return null;
     }
@@ -99,7 +111,13 @@ function versionKey(buildingId: string): string {
   return `building:${buildingId}:version`;
 }
 
-/** Read through the cache under the building's current version. */
+/**
+ * Bump when the shape of a cached payload changes, so entries written by the previous release are
+ * unreachable after a deploy instead of served for up to the TTL.
+ */
+export const CACHE_SCHEMA = 2;
+
+/** Read through the cache under the building's current version and the payload schema. */
 export async function withCache<T>(
   cache: Cache,
   buildingId: string,
@@ -108,7 +126,7 @@ export async function withCache<T>(
   load: () => Promise<T>,
 ): Promise<T> {
   const version = await cache.getVersion(buildingId);
-  const key = `building:${buildingId}:v${version}:${name}`;
+  const key = `building:${buildingId}:v${version}:s${CACHE_SCHEMA}:${name}`;
   const hit = await cache.get<T>(key);
   cacheRequests.inc({ result: hit !== null ? "hit" : "miss" });
   if (hit !== null) return hit;
