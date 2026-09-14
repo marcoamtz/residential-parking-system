@@ -1,11 +1,11 @@
+import "./load-dotenv";
 import { serve } from "@hono/node-server";
 import { createDb } from "@parking/db";
 import { createApp } from "./app";
 import { createCacheRedis, RedisCache } from "./cache";
-import { loadDotenv, loadEnv } from "./env";
+import { loadEnv } from "./env";
 import { logger } from "./observability";
 
-loadDotenv();
 const env = loadEnv();
 if (env.NODE_ENV === "production" && env.mockAuth) {
   logger.warn(

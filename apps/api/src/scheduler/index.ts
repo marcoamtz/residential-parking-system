@@ -1,9 +1,10 @@
+import "../load-dotenv";
 import { createDb } from "@parking/db";
 import { Queue, Worker } from "bullmq";
 import { Redis } from "ioredis";
 import { createCacheRedis, RedisCache } from "../cache";
 import { toIsoDate } from "../deps";
-import { loadDotenv, loadEnv } from "../env";
+import { loadEnv } from "../env";
 import { describeError } from "../errors";
 import { logger } from "../observability";
 import { assertRotationSucceeded, rotateAllBuildings } from "./rotation";
@@ -18,7 +19,6 @@ import { assertRotationSucceeded, rotateAllBuildings } from "./rotation";
  * A building that fails is logged and skipped; every other building still runs, and the run as a
  * whole then fails (exit 1, or a failed BullMQ job) so the platform's alerting sees it.
  */
-loadDotenv();
 const env = loadEnv();
 const once = process.argv.includes("--once");
 

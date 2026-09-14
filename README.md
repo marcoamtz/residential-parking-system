@@ -107,7 +107,7 @@ docs/
   adr/        Architecture decision records.
 ```
 
-Boundaries: `domain` imports nothing from the workspace, `db` imports nothing from `api`, and `web` imports only the API's route types. pnpm's strict resolution blocks undeclared packages; `pnpm check:boundaries` (CI and pre-push) blocks relative imports across packages and runtime imports where only types are allowed.
+Boundaries: `domain` imports nothing from the workspace, `db` imports nothing from `api`, and `web` imports only the API's route types. pnpm's strict resolution blocks undeclared packages; `pnpm check:boundaries` (CI and pre-push) blocks relative imports that leave a package and runtime imports where only types are allowed, scanning static, dynamic (`import()`), and `require()` specifiers. Its scanner is unit-tested (`pnpm test:scripts`).
 
 ## Status
 

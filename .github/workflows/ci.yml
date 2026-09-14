@@ -68,6 +68,7 @@ jobs:
 
       - run: pnpm lint
       - run: pnpm check:boundaries
+      - run: pnpm test:scripts
       - run: pnpm typecheck
       - run: pnpm db:migrate
       - run: pnpm test

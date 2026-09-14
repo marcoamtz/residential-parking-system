@@ -18,7 +18,8 @@
     "db:seed": "pnpm --filter @parking/api seed",
     "scheduler": "pnpm --filter @parking/api scheduler",
     "prepare": "node scripts/install-hooks.mjs",
-    "check:boundaries": "node scripts/check-boundaries.mjs"
+    "check:boundaries": "node scripts/check-boundaries.mjs",
+    "test:scripts": "node --test scripts/*.test.mjs"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.12",
