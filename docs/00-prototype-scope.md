@@ -13,7 +13,7 @@ The brief is explicit: the emphasis is on senior-level thinking, not on deliveri
 | Typed API | Hono with end-to-end request/response types shared with the web app ([ADR-0006](adr/0006-hono-api-with-shared-types.md)). |
 | Mock authentication and roles | Seeded users, JWT in an HttpOnly cookie, resident and admin roles ([ADR-0008](adr/0008-mock-auth-jwt-cookie-rbac.md)). |
 | Minimal web UI | One resident page (status, next cycle, register) and one admin page (run draw, view results) ([ADR-0010](adr/0010-react-vite-spa.md)). |
-| Quarterly rotation worker | A BullMQ repeatable job draws each open cycle a week before it starts and opens the next quarter in the same run; `--once` mode for platform cron ([ADR-0012](adr/0012-rotation-worker-with-bullmq.md)). |
+| Quarterly rotation worker | A BullMQ repeatable job draws each open cycle a week before it starts and opens the next quarter in the same run; after downtime it draws the overdue cycle and opens the first quarter whose draw day is still ahead; `--once` mode for platform cron ([ADR-0012](adr/0012-rotation-worker-with-bullmq.md)). |
 | Local infrastructure | Docker Compose for PostgreSQL and Redis. Container images for API, worker, and web. CI runs lint, typecheck, tests, and image builds. |
 
 ## What is documented but not built
@@ -22,7 +22,7 @@ The brief is explicit: the emphasis is on senior-level thinking, not on deliveri
 | --- | --- |
 | License plate recognition | Event contract, ingestion boundary, and delegation plan in [ADR-0009](adr/0009-lpr-as-async-event-subsystem.md) and [04-delegation-plan.md](04-delegation-plan.md). |
 | Real identity provider | Swap path from mock auth to OIDC in [ADR-0008](adr/0008-mock-auth-jwt-cookie-rbac.md). |
-| Multi-building isolation | `building_id` on the tenant roots from day one and every query scoped by the session's building; registrations, allocations, and draws inherit the building through their cycle. Row-Level Security (direct and join-based policies) as the hardening step in [01-architecture.md](01-architecture.md). |
+| Multi-building isolation | `building_id` on the tenant roots from day one and every query scoped by the session's building; registrations, allocations, and draws inherit the building through their cycle. Same-building ownership of a registration or allocation is enforced by the scoped services, not by a constraint. Row-Level Security (direct and join-based policies) as the hardening step in [01-architecture.md](01-architecture.md). |
 | Cloud deployment | Container images and a compose rehearsal are built; the reference AWS topology and deployment diagram are in [01-architecture.md](01-architecture.md). There is no live environment. |
 | PgBouncer, load balancing, error tracking | [05-tools-and-strategies.md](05-tools-and-strategies.md). Application-side pooling (`pg.Pool`), logs, metrics, and readiness are built. |
 | Withdrawing a registration | The onboarding starter task, issue #12 ([06-team-and-communication.md](06-team-and-communication.md)). |

@@ -31,3 +31,7 @@ Drizzle ORM for schema definition, migrations, and queries. Schema is TypeScript
 - MongoDB: the invariants above would become application-level checks with retry logic. Wrong fit for a domain that is relational by nature.
 - Prisma: excellent developer experience, but its query engine adds a runtime dependency and abstracts away the SQL that matters for index and constraint work.
 - Raw SQL with a query builder: viable, but migrations and type inference would be hand-maintained.
+
+## Amendment, 2026-09-14: tenancy wording and what is not a constraint
+
+The decision originally said every table carries `building_id`. An independent review pointed out that registrations, allocations, and draws do not; they belong to a building through their cycle. The bullet above was corrected in place (commit 23a9948). The consequence worth recording: the schema enforces uniqueness and the entrant-to-cycle relationship (composite foreign key), but not same-building ownership of a registration or an allocation; a registration linking one building's cycle to another building's resident is rejected by the building-scoped services, not by PostgreSQL. Row-Level Security with join-based policies, or a denormalized `building_id` with composite foreign keys, is the database-side step and is deferred, as the scaling table in 01-architecture.md states.

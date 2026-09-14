@@ -7,7 +7,7 @@ Every requirement in the assessment brief, in the brief's order, with its status
 | Requirement | Status | Evidence |
 | --- | --- | --- |
 | Manage parking spot allocation for a residential unit | Built | `packages/domain` (draw), `apps/api` (routes, transaction), `apps/web` (resident and admin views) |
-| Rotate assignments every three months via a raffle | Built | Quarterly cycles in the schema; rotation worker draws a week before each quarter and opens the next ([ADR-0012](adr/0012-rotation-worker-with-bullmq.md)); administrator button for exceptions |
+| Rotate assignments every three months via a raffle | Built | Cycles are date ranges in the schema; the rotation worker computes calendar quarters, draws a week before each starts, and opens the next ([ADR-0012](adr/0012-rotation-worker-with-bullmq.md)); administrator button for exceptions and arbitrary periods |
 | Track which residents have already benefited, to ensure fairness | Built | History is the `raffle_registrations` and `spot_allocations` tables; ranking inputs computed in `loadEntrants` ([02-domain-and-fairness.md](02-domain-and-fairness.md)) |
 | Lay foundations for real-time license plate recognition | Documented | [ADR-0009](adr/0009-lpr-as-async-event-subsystem.md), delegation plan in [04-delegation-plan.md](04-delegation-plan.md), issues #6–#11 |
 
@@ -27,7 +27,7 @@ Every requirement in the assessment brief, in the brief's order, with its status
 | --- | --- | --- | --- |
 | 1a | Allow residents to register for the parking raffle | Built | `POST /api/resident/register`; "Register for this draw" in `ResidentView`; rejection and draw-interleaving tests in `apps/api/src/resident/register.test.ts`, component tests in `apps/web/src/views/ResidentView.test.tsx` |
 | 1b | Allocate available parking spots fairly | Built | `executeDraw` in `packages/domain/src/draw.ts`, rule in [ADR-0003](adr/0003-fairness-ranking-rule.md); unit tests; real-data walkthrough in [02-domain-and-fairness.md](02-domain-and-fairness.md); residents can fetch and replay the verification record of any drawn cycle (`GET /api/resident/draws/:cycleId`, tested in `apps/api/src/draws/verification.test.ts`) |
-| 1c | Rotate assignments every 3 months | Built | `planRotation` in `packages/domain/src/rotation.ts` (9 tests); worker in `apps/api/src/scheduler` (4 PostgreSQL-backed tests); `pnpm scheduler --once` |
+| 1c | Rotate assignments every 3 months | Built | `planRotation` in `packages/domain/src/rotation.ts` (unit tests: quarter math, leap years, lead window, downtime recovery); worker in `apps/api/src/scheduler` (PostgreSQL-backed tests incl. failure isolation); `pnpm scheduler --once` |
 | 1d | Track residents' parking history to prioritize fairness | Built | History tables and the one-query ranking input in `apps/api/src/admin/draw.ts`; history table on the resident's page |
 | 2a | A simple web interface (React, Angular, or plain JavaScript) | Built | `apps/web`: React 19, Vite, shadcn/ui ([ADR-0010](adr/0010-react-vite-spa.md), [ADR-0011](adr/0011-shadcn-ui-from-the-start.md)); 14 component tests; verified end to end in a headless browser and through the container edge |
 | 2b | Residents can see their parking status and next allocation | Built | `GET /api/resident/status` returns `current`, `next` (the drawn cycle that has not started), `upcoming`, `history`; three cards in `ResidentView` |
@@ -40,7 +40,7 @@ Every requirement in the assessment brief, in the brief's order, with its status
 | --- | --- | --- |
 | Architecture diagram showing frontend, backend, database, caching layer, cloud infrastructure | Documented | Component diagram, two sequence diagrams, and the reference deployment diagram in [01-architecture.md](01-architecture.md) |
 | Explain design decisions: framework, storage approach, deployment method | Documented | [ADR-0010](adr/0010-react-vite-spa.md) and [ADR-0006](adr/0006-hono-api-with-shared-types.md) (frameworks), [ADR-0002](adr/0002-postgresql-with-drizzle.md) (storage), deployment table and container images in [01-architecture.md](01-architecture.md) |
-| Show how the system could scale with more residents or multiple buildings | Documented | Scaling table in [01-architecture.md](01-architecture.md): stateless API, per-building cache keys, `building_id` scoping today, RLS and pooling as next steps |
+| Show how the system could scale with more residents or multiple buildings | Documented | Scaling table in [01-architecture.md](01-architecture.md): stateless API, per-building cache keys, `building_id` scoping today, RLS and PgBouncer as next steps (application-side pooling exists) |
 
 ## Delegation plan for future features
 
@@ -63,7 +63,7 @@ Every requirement in the assessment brief, in the brief's order, with its status
 | Requirement | Status | Evidence |
 | --- | --- | --- |
 | Secure storage of resident data | Built and documented | Minimal personal data (name, unit, email); fixed log fields and every logged error sanitized through `describeError`, tested with an email in the query parameters, the row detail, and the PostgreSQL message; TLS and encrypted backups in the reference topology; column-level encryption specified for plates when they arrive ([ADR-0008](adr/0008-mock-auth-jwt-cookie-rbac.md), [05-tools-and-strategies.md](05-tools-and-strategies.md)) |
-| Authentication and authorization (at least a basic mock) | Built | Password-less development login behind `MOCK_AUTH`; signed JWT in an `HttpOnly`, `Secure`, `SameSite=Strict` cookie; role middleware; resident identity from claims only; admin queries scoped by building. Tests: full role matrix (401, 403 both directions, tampered session, development login disabled) in `apps/api/src/app.test.ts`; cross-building draw in `admin/draw.test.ts` |
+| Authentication and authorization (at least a basic mock) | Built | Password-less development login behind `MOCK_AUTH`; signed JWT in an `HttpOnly`, `SameSite=Strict` cookie, `Secure` in production; role middleware; resident identity from claims only; admin queries scoped by building. Tests: full role matrix (401, 403 both directions, tampered session, development login disabled) in `apps/api/src/app.test.ts`; cross-building draw in `admin/draw.test.ts` |
 | Protection against common vulnerabilities (SQL injection, XSS) | Built | Parameterized queries throughout; React escaping; custom-header CSRF guard; Zod whitelists; security headers at the API and the nginx edge (CSP, nosniff, framing, referrer policy). Threat-to-control table in [05-tools-and-strategies.md](05-tools-and-strategies.md) |
 | Cloud security best practices if deploying | Built and documented | Non-root containers (api uid 1000, web uid 101), informational Trivy scan in CI, `/api/metrics` blocked at the edge; least-privilege roles, private subnets, secrets in a managed store, infrastructure as code in [05-tools-and-strategies.md](05-tools-and-strategies.md) and the deployment diagram |
 
@@ -81,9 +81,9 @@ Every requirement in the assessment brief, in the brief's order, with its status
 | 3b | Performance strategies (caching, load balancing, indexing) | Documented | Performance section of [05-tools-and-strategies.md](05-tools-and-strategies.md) |
 | 3c | Security strategies (data protection, auth, cloud) | Documented | Security section of [05-tools-and-strategies.md](05-tools-and-strategies.md) |
 | 4a | Clear, structured documentation another team member could follow | Built and documented | `README.md` cold-start sequence verified from an empty database; `docs/` numbered by deliverable; endpoint docs in [03-api.md](03-api.md) |
-| 4b | Communication plan (code reviews, sprint planning, decision-making) | Documented and practiced | [06-team-and-communication.md](06-team-and-communication.md); the first 30 commits (bootstrap through docs) were pushed directly on 2026-09-06 to 2026-09-13; since PR #1 on 2026-09-13 every change has landed through a pull request with the template, and branch protection binds administrators |
+| 4b | Communication plan (code reviews, sprint planning, decision-making) | Documented and practiced | [06-team-and-communication.md](06-team-and-communication.md); the first 30 commits (bootstrap through docs) were pushed directly on 2026-09-06 to 2026-09-13; since PR #1 on 2026-09-13 every change has landed through a pull request with the template, and branch protection binds administrators. The commit-subject rule dates from the hook's introduction; nine earlier subjects exceed its length limit and stay as they are, history is not rewritten |
 | 4c | How to onboard or guide a junior developer | Documented | Day-one checklist and the withdraw-registration starter brief in [06-team-and-communication.md](06-team-and-communication.md); issue #12 |
-| 5a | Proof-of-concept of the core allocation system | Built | Domain, API, web, worker; 91 automated tests (27 domain, 50 API, 14 web) run in CI against real PostgreSQL and Redis; container images built, scanned, and rehearsed as a running stack in CI |
+| 5a | Proof-of-concept of the core allocation system | Built | Domain, API, web, worker; 95 automated tests (27 domain, 54 API, 14 web) run in CI against real PostgreSQL and Redis; container images built, scanned, and rehearsed as a running stack in CI |
 
 ## Deliberately not built
 

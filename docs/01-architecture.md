@@ -40,10 +40,13 @@ flowchart LR
     hook["Ingestion webhook<br/>HMAC-signed"]
     occ["Occupancy worker"]
     cam -. "plate_detected event" .-> hook
-    hook -. enqueue .-> redis
-    redis -. drain .-> occ
-    occ -. "vehicle_events" .-> pg
   end
+
+  %% Edges to the shared stores are declared outside the subgraph; Mermaid would otherwise
+  %% draw PostgreSQL and Redis inside the "future" cluster.
+  hook -. enqueue .-> redis
+  redis -. drain .-> occ
+  occ -. "vehicle_events" .-> pg
 ```
 
 Solid lines exist in the prototype. Dashed lines are the documented extension path; nothing in the current code depends on them. The rotation worker is the same container image as the API with a different entrypoint; it reuses the API's draw and cycle services, so a scheduled draw and a manual one are the same code path ([ADR-0012](adr/0012-rotation-worker-with-bullmq.md)).
@@ -118,17 +121,17 @@ Where the camera subsystem attaches: a new route module under `apps/api` for the
 
 - PostgreSQL is the only source of truth. Invariants are constraints: a spot allocated once per cycle, a registration wins at most once, a winner must be an entrant of that same cycle (composite foreign key), one open cycle per building (partial unique index). See [02-domain-and-fairness.md](02-domain-and-fairness.md).
 - The draw's idempotency is a state transition inside the same transaction as the writes. Retries are safe by construction.
-- Redis accelerates one read path and is never consulted for a decision. If it is down, the API logs once and serves from PostgreSQL. If it is wiped, nothing is lost.
+- Redis accelerates one read path and is never consulted for a decision. If it is down, the API logs once and serves from PostgreSQL. If it is wiped, no allocation data is lost: cached reads rebuild from PostgreSQL, and the worker re-registers its schedule when it starts (`pnpm scheduler --once` runs the check immediately).
 - Every write that changes what residents see bumps the building version after commit, so a resident refreshing right after a draw sees the result. Between the commit and the bump there is a window of milliseconds where a read may cache stale data under the old version; the next bump makes that key unreachable, and the 300 second TTL bounds it in any case.
 
 ## Scaling path
 
-Draw volume never needs to scale: four draws per building per year is not a throughput problem at any realistic number of buildings. What scales is read traffic right after a draw is announced, and the number of tenants sharing one deployment.
+Draw volume never needs to scale: four draws per building per year is not a throughput problem at any realistic number of buildings, and one draw costs one aggregate query over the building's history plus an in-memory sort (the cost is stated in [02-domain-and-fairness.md](02-domain-and-fairness.md)). What scales is read traffic right after a draw is announced, and the number of tenants sharing one deployment.
 
 | Stage | What changes | What does not |
 | --- | --- | --- |
 | One building (today) | Single API instance, one PostgreSQL, one Redis. Docker Compose locally. | |
-| Many buildings, one operator | `building_id` is on the tenant roots (`residents`, `users`, `parking_spots`, `raffle_cycles`); registrations, allocations, and draws belong to a building through their cycle, and every admin and resident query is scoped by the session's building. Add Row-Level Security: direct policies on the root tables, join-based policies (through `raffle_cycles`) on the three child tables, or a denormalized `building_id` with composite foreign keys if policy performance requires it. Run two or more API instances behind a load balancer; the API is stateless (session in cookie). Add a connection pooler (PgBouncer, transaction mode) once instance count times pool size approaches PostgreSQL's connection limit. | Schema, domain code, cache scheme (already keyed per building). |
+| Many buildings, one operator | `building_id` is on the tenant roots (`residents`, `users`, `parking_spots`, `raffle_cycles`); registrations, allocations, and draws belong to a building through their cycle, and every admin and resident query is scoped by the session's building. Same-building ownership of a registration or an allocation (the cycle of one building, the resident or spot of another) is enforced by those scoped services, not by a constraint: the schema has per-column foreign keys, not composite same-building ones. Add Row-Level Security: direct policies on the root tables, join-based policies (through `raffle_cycles`) on the three child tables, or a denormalized `building_id` with composite foreign keys if policy performance requires it; either closes that gap at the database. Run two or more API instances behind a load balancer; the API is stateless (session in cookie). Add a connection pooler (PgBouncer, transaction mode) once instance count times pool size approaches PostgreSQL's connection limit. | Schema, domain code, cache scheme (already keyed per building). |
 | Many operators | Choose between shared schema with RLS (cheapest), schema per tenant (stronger isolation, same instance), or database per tenant (regulatory isolation). The code path is identical; the connection string becomes tenant-resolved. | Domain, API, web. |
 | Camera telemetry | Bursts land on the Redis queue, a separate worker drains them. Add read replicas only if the occupancy dashboard becomes read-heavy; the allocation path never needs them. | The draw and the resident status path. |
 

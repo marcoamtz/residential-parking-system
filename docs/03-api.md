@@ -6,7 +6,7 @@ Base path `/api`. JSON in and out. Route definitions in `apps/api/src` are the s
 
 - Every input is validated with Zod before a handler runs. Invalid input returns `400` with code `validation_error` and an `issues` list of `{ path, message }`.
 - Errors are `{ "code": string, "message": string }`, including framework errors such as a malformed JSON body (`400 bad_request`). Codes are stable identifiers such as `already_registered` or `cycle_already_drawn`; messages are for humans.
-- Sessions are a signed JWT in an `HttpOnly`, `Secure`, `SameSite=Strict` cookie ([ADR-0008](adr/0008-mock-auth-jwt-cookie-rbac.md)). Missing or invalid session returns `401`; wrong role returns `403`.
+- Sessions are a signed JWT in an `HttpOnly`, `SameSite=Strict` cookie, flagged `Secure` in production (`NODE_ENV=production`; local development runs over plain HTTP) ([ADR-0008](adr/0008-mock-auth-jwt-cookie-rbac.md)). Missing or invalid session returns `401`; wrong role returns `403`.
 - Every mutating request (anything but `GET`, `HEAD`, `OPTIONS`) must carry `X-Requested-With: parking-web`. Requests without it get `403`. Browsers only send custom headers from same-origin script, which is the second CSRF layer next to the cookie.
 - Resident routes resolve the resident from the session claims. No resident route accepts a resident id as a parameter or in a body.
 - Admin routes scope every query to the administrator's `buildingId` from the session. A cycle or spot in another building behaves as if it did not exist (`404`).
@@ -38,7 +38,6 @@ Every response carries `X-Request-Id`, taken from the incoming header when a pro
 | --- | --- | --- |
 | GET | `/api/resident/status` | `current`: allocation in the cycle covering today. `next`: result of the next drawn cycle that has not started yet (`allocated`, `not_allocated`, or `not_entered`), present during the week between the scheduled draw and the quarter start. `upcoming`: the open cycle and whether the resident is registered. `history`: every drawn cycle the resident entered. Cached, see below. |
 | POST | `/api/resident/register` | Registers for the building's open cycle. `201`. `409 no_open_cycle` or `409 already_registered`. `403 resident_inactive` after move-out. Runs in a transaction that locks the open cycle row `FOR SHARE`, so a registration can never land after the draw has claimed the cycle ([ADR-0004](adr/0004-draw-idempotency-via-cycle-state.md), amendment). |
-
 | GET | `/api/resident/draws/:cycleId` | Verification record for a drawn cycle in the resident's building: seed, `executedAt`, the exact `input` handed to `executeDraw` (entrants by registration id with their three history numbers, active spots), the resulting `allocations`, and `yourRegistrationId`. No names, units, or resident ids. `409 cycle_not_drawn` while open. |
 
 Withdrawing a registration is intentionally not implemented. It is the documented starter task for onboarding ([06-team-and-communication.md](06-team-and-communication.md)).

@@ -74,7 +74,7 @@ Reading it:
 
 What happens next is also predictable. Cycle 3 is open with six entrants: 101 and 302 hold spots now (wait 1), 102, 103, and 202 held spots in cycle 1 (wait 2, one attempt without a spot each), and 203 has never had a spot. When the administrator runs the draw, 203 ranks first and 102, 103, and 202 fill the remaining three spots in an order decided by the seed; 101 and 302 go without. If unit 104 registers before the draw, they rank with 101 and 302 and also go without, because they hold a spot this quarter.
 
-The rule is covered by unit tests in `packages/domain/src/draw.test.ts` (15 cases, including "puts a never-allocated resident ahead of last quarter's winner" and "ranks fewer lifetime wins first when the wait is equal", which exercises rule 2) and by the integration test "ranks a never-allocated resident above last cycle's winner in the next cycle" in `apps/api/src/admin/draw.test.ts`, which runs two consecutive draws against PostgreSQL.
+The rule is covered by unit tests in `packages/domain/src/draw.test.ts` (including "puts a never-allocated resident ahead of last quarter's winner" and "ranks fewer lifetime wins first when the wait is equal", which exercises rule 2) and by the integration test "ranks a never-allocated resident above last cycle's winner in the next cycle" in `apps/api/src/admin/draw.test.ts`, which runs two consecutive draws against PostgreSQL.
 
 ### How a resident can verify a draw
 
@@ -138,6 +138,10 @@ Uniqueness is declared as table constraints rather than unique indexes so that t
 
 The ranking rule needs three numbers per entrant: cycles since last allocation, lifetime allocations, and unsuccessful registrations. All three are aggregates over `raffle_registrations` left-joined to `spot_allocations` and `raffle_cycles`. Keeping a denormalized history or counters would introduce a second source of truth that could drift from the allocations; computing them in one query at draw time is cheap (a few hundred rows per building) and cannot be wrong. The query is `loadEntrants` in `apps/api/src/admin/draw.ts`.
 
+### What a draw costs
+
+For a building with E entrants, S active spots, and H registrations in its history: one query aggregates the three ranking numbers over the H rows (indexed by `resident_id` and `registration_id`, so the database work is linear in H), one query reads the S spots, and `executeDraw` sorts entrants and spots in memory, O(E log E + S log S) time and O(E + S) space, then writes min(E, S) allocations in the same transaction. There is no per-entrant query. At the scale the brief describes (tens of spots, hundreds of residents, a few years of quarters) a draw completes in about 20 ms; it would need thousands of entrants per building before the sort was measurable.
+
 ### Indexes and the queries that use them
 
 Every index in the schema, including the ones PostgreSQL creates for primary keys and unique constraints (`pg_indexes` on a migrated database lists exactly these 21).
@@ -161,7 +165,7 @@ Every index in the schema, including the ones PostgreSQL creates for primary key
 | `raffle_registrations` | `(resident_id)` | index | Resident history and ranking inputs across cycles |
 | `spot_allocations` | `(id)` | primary key | Row identity |
 | `spot_allocations` | `(registration_id)` | unique | Join from a registration to its allocation: history, admin results, ranking inputs, status |
-| `spot_allocations` | `(cycle_id, spot_id)` | unique | Verification record and rotation queries by cycle (leading column); spot-once-per-cycle invariant |
+| `spot_allocations` | `(cycle_id, spot_id)` | unique | Verification record lookup by cycle (leading column); spot-once-per-cycle invariant |
 | `spot_allocations` | `(cycle_id, rank)` | unique | Ordered allocations of a cycle; distinct ranks |
 | `raffle_draws` | `(id)` | primary key | Row identity |
 | `raffle_draws` | `(cycle_id)` | unique | Verification record by cycle; one draw per cycle |

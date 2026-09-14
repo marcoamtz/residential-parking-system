@@ -4,7 +4,7 @@ Written in first person because the brief asks how I would keep a team aligned a
 
 ## How decisions are made
 
-**Architecture decision records.** Anything that is hard to reverse gets a record in `docs/adr` before the code: a storage choice, a contract with an external system, a change to the fairness rule, a security control. The format is short by design (context, decision, consequences, alternatives) so writing one takes under an hour. Anyone on the team can open one. I respond within one working day with approval or specific questions, so a decision never blocks work for more than a day. Once accepted a record is not edited; a new record supersedes it, which keeps the reasoning trail honest.
+**Architecture decision records.** Anything that is hard to reverse gets a record in `docs/adr` before the code: a storage choice, a contract with an external system, a change to the fairness rule, a security control. The format is short by design (context, decision, consequences, alternatives) so writing one takes under an hour. Anyone on the team can open one. I respond within one working day with approval or specific questions, so a decision never blocks work for more than a day. Once accepted, a record's decision is not rewritten: a change of decision or consequence is a dated amendment section at the end of the record, or a new record that supersedes it, and wording corrections that leave the decision intact are made in place where git history keeps them visible. That keeps the reasoning trail honest without freezing typos.
 
 **Everything else** is decided by the owner of the module and surfaced in the pull request description. If a reviewer disagrees, the discussion happens in the review; if it cannot be settled there in a day, it becomes an ADR.
 
@@ -24,7 +24,7 @@ Async first: questions go in writing with enough context to be answered without 
 
 ## Code review
 
-- Every change lands through a pull request, including my own; the pull request is the review record even when I am the only engineer. `main` is protected with the rule applied to administrators too: pull request required, the three CI checks green on an up-to-date branch, linear history, signed commits, conversations resolved, no force pushes or deletion. There is no bypass; a solo repository is where the habit is built.
+- Every change lands through a pull request, including my own; the pull request is the review record even when I am the only engineer. `main` is protected with the rule applied to administrators too: pull request required, the four CI checks (lint/typecheck/test/build, both image builds, compose rehearsal) green on an up-to-date branch, linear history, signed commits, conversations resolved, no force pushes or deletion. There is no bypass; a solo repository is where the habit is built.
 - **Size.** Soft limit of 400 changed lines, excluding lockfiles and generated migrations. Above that, the author splits the work or explains in the description why it cannot be split. Small pull requests get reviewed the same day; large ones wait, which is the incentive.
 - **Who reviews what.** I review anything touching `packages/db` (schema, migrations), the draw transaction, authentication and authorization, and external contracts. Everything else is reviewed by a peer; I am not a bottleneck on web views or fixtures.
 - **Turnaround.** First response within one working day. A review that will take longer says so.
@@ -56,7 +56,7 @@ This task is intentionally unimplemented and tracked as [issue #12](https://gith
 1. `DELETE /api/resident/register` removes my registration from the building's open cycle and returns `204`.
 2. If I am not registered for the open cycle, it returns `404` with code `not_registered`.
 3. If the building has no open cycle, it returns `409` with code `no_open_cycle`.
-4. Registrations in drawn cycles can never be removed. The route only ever targets the open cycle, so this is guaranteed by construction; a test proves it.
+4. Registrations in drawn cycles can never be removed. The route only targets the open cycle and reads it `FOR SHARE` in the same transaction as the delete, exactly as `registerForOpenCycle` does, so a withdraw can never interleave with a draw; tests prove both orders.
 5. After a successful withdraw, `GET /api/resident/status` shows `upcoming.registered: false` immediately, not after the cache TTL.
 6. The resident view shows a "Withdraw" button next to the "Registered" badge, using the same `AlertDialog` confirmation the admin draw uses.
 
@@ -71,7 +71,7 @@ Headers: Cookie: session=...; X-Requested-With: parking-web
 Resident identity comes from the session claims via `residentIdOf`. The route takes no parameters and no body.
 
 **Where the pieces go.**
-- Query: `withdrawFromOpenCycle(db, residentId, buildingId)` next to `registerForOpenCycle` in `apps/api/src/resident/status.ts`. Find the open cycle, `DELETE ... WHERE cycle_id AND resident_id RETURNING id`, map zero rows to `404`.
+- Query: `withdrawFromOpenCycle(db, residentId, buildingId)` next to `registerForOpenCycle` in `apps/api/src/resident/status.ts`. Copy its transaction shape: read the open cycle `FOR SHARE`, then `DELETE ... WHERE cycle_id AND resident_id RETURNING id`, map zero rows to `404`. The shared lock is what stops a draw from claiming the cycle between the read and the delete ([ADR-0004](adr/0004-draw-idempotency-via-cycle-state.md), amendment).
 - Route: `.delete("/register", ...)` in `apps/api/src/resident/routes.ts`, after the `post`. Call the query, then `deps.cache.bump(user.buildingId)`, then `c.body(null, 204)`.
 - Client: `resident.withdraw` in `apps/web/src/lib/api.ts`; the typed client picks up the new route automatically.
 - UI: `ResidentView.tsx`, next to the `Registered` badge.
@@ -82,6 +82,7 @@ Resident identity comes from the session claims via `residentIdOf`. The route ta
 - [ ] Withdraw without a registration: `HttpError` with status 404 and code `not_registered`.
 - [ ] Withdraw when the building has no open cycle: 409 `no_open_cycle`.
 - [ ] Draw the cycle, then attempt withdraw: 409 `no_open_cycle`, and the allocation for that registration still exists.
+- [ ] Both interleavings with a concurrent draw, using the gated-transaction pattern in `register.test.ts`: a withdraw that read the cycle first completes and the entrant is absent from the draw; a withdraw that arrives after the draw claimed the cycle gets 409 and the allocation stays.
 - [ ] The cache version is bumped exactly once on success and not at all on failure (use `NullCache` with a spy, or assert on the Redis key in an integration setting).
 
 **Review focus.** I will look at three things: that the resident id never comes from the request, that the cache bump is after the database write and outside any transaction, and that the 404/409 distinction is tested. If those three are right, the rest is style.
