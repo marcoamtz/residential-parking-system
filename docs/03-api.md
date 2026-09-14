@@ -70,4 +70,4 @@ Withdrawing a registration is intentionally not implemented. It is the documente
 - Version key: `building:{buildingId}:version`, an integer.
 - Value key: `building:{buildingId}:v{version}:resident:{residentId}:status`, TTL 300 seconds.
 - Writes that bump the version after their transaction commits: registration, cycle creation, draw, spot creation, spot activation change.
-- If Redis is unreachable the first failure is logged once and every read falls through to PostgreSQL. Nothing depends on the cache for correctness.
+- If Redis is unreachable the first failure is logged once and every read falls through to PostgreSQL within about 300 ms (no offline queue, short connect and command timeouts). Nothing depends on the cache for correctness. Verified by `apps/api/src/cache.test.ts` against an unreachable port and by a live measurement: status reads in 9–30 ms with Redis stopped.

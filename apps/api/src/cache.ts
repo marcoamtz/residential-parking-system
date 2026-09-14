@@ -1,4 +1,4 @@
-import type { Redis } from "ioredis";
+import { Redis, type RedisOptions } from "ioredis";
 import { cacheRequests, logger } from "./observability";
 
 /**
@@ -12,6 +12,28 @@ export interface Cache {
   set(key: string, value: unknown, ttlSeconds: number): Promise<void>;
   /** Readiness probe. "unavailable" is informational, never a failure. */
   ping(): Promise<"ok" | "unavailable">;
+}
+
+/**
+ * Fail-fast client for the cache. With Redis unreachable, ioredis would otherwise queue commands
+ * and retry for tens of seconds per request; here a command fails within ~300 ms and the caller
+ * falls through to PostgreSQL. Reconnection keeps backing off in the background.
+ */
+export function createCacheRedis(url: string, overrides: RedisOptions = {}): Redis {
+  const redis = new Redis(url, {
+    lazyConnect: true,
+    enableOfflineQueue: false,
+    maxRetriesPerRequest: 0,
+    connectTimeout: 300,
+    commandTimeout: 300,
+    retryStrategy: (attempt) => Math.min(attempt * 200, 5_000),
+    ...overrides,
+  });
+  // Surfaced once by RedisCache.guard; without a listener ioredis would throw on 'error'.
+  redis.on("error", () => {});
+  // Connect eagerly so the first request after startup is not a forced miss; failures retry in the background.
+  redis.connect().catch(() => {});
+  return redis;
 }
 
 export class RedisCache implements Cache {

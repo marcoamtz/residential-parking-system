@@ -20,9 +20,9 @@ Because a write bumps the version, every existing key for that building becomes 
 
 ## Consequences
 
-- One extra Redis round trip per read to fetch the version. Cheap, and pipelined with the status lookup.
+- One extra Redis round trip per read to fetch the version, sequential with the value lookup because the key depends on it. Two sub-millisecond reads on a local network; not worth a Lua script or a server-side lookup at this scale.
 - Invalidation is coarse: one registration invalidates every resident's cached status in that building. Acceptable because reads are cheap to rebuild and writes are rare.
-- If Redis is unavailable the API reads from PostgreSQL. The cache is never required for correctness (see ADR-0004).
+- If Redis is unavailable the API reads from PostgreSQL. The cache is never required for correctness (see ADR-0004). The client is configured to fail fast (no offline queue, 300 ms connect and command timeouts), so an outage costs a few hundred milliseconds per read, not the tens of seconds ioredis defaults would allow; verified by a test against an unreachable port.
 - Redis is also the natural home for a future job queue and for buffering camera events (ADR-0009), so the dependency earns its place beyond caching.
 
 ## Alternatives considered

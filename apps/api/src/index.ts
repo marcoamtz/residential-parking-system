@@ -1,8 +1,7 @@
 import { serve } from "@hono/node-server";
 import { createDb } from "@parking/db";
-import { Redis } from "ioredis";
 import { createApp } from "./app";
-import { RedisCache } from "./cache";
+import { createCacheRedis, RedisCache } from "./cache";
 import { loadDotenv, loadEnv } from "./env";
 import { logger } from "./observability";
 
@@ -10,10 +9,7 @@ loadDotenv();
 const env = loadEnv();
 
 const { db, pool } = createDb(env.DATABASE_URL);
-const redis = new Redis(env.REDIS_URL, { lazyConnect: true, maxRetriesPerRequest: 1 });
-redis.on("error", () => {
-  // Surfaced once by RedisCache; the API keeps serving from PostgreSQL.
-});
+const redis = createCacheRedis(env.REDIS_URL);
 
 const app = createApp({
   db,

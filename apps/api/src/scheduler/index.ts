@@ -1,7 +1,7 @@
 import { createDb } from "@parking/db";
 import { Queue, Worker } from "bullmq";
 import { Redis } from "ioredis";
-import { RedisCache } from "../cache";
+import { createCacheRedis, RedisCache } from "../cache";
 import { toIsoDate } from "../deps";
 import { loadDotenv, loadEnv } from "../env";
 import { logger } from "../observability";
@@ -21,8 +21,7 @@ const once = process.argv.includes("--once");
 
 const { db, pool } = createDb(env.DATABASE_URL);
 // BullMQ needs maxRetriesPerRequest: null on its connections; the cache client keeps the default.
-const cacheRedis = new Redis(env.REDIS_URL, { lazyConnect: true, maxRetriesPerRequest: 1 });
-cacheRedis.on("error", () => {});
+const cacheRedis = createCacheRedis(env.REDIS_URL);
 const cache = new RedisCache(cacheRedis);
 
 const rotate = () => rotateAllBuildings(db, cache, toIsoDate(new Date()), env.DRAW_LEAD_DAYS);
