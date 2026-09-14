@@ -7,6 +7,11 @@ import { logger } from "./observability";
 
 loadDotenv();
 const env = loadEnv();
+if (env.NODE_ENV === "production" && env.mockAuth) {
+  logger.warn(
+    "MOCK_AUTH=true in production: the password-less login is enabled. Intended for rehearsals only.",
+  );
+}
 
 const { db, pool } = createDb(env.DATABASE_URL);
 const redis = createCacheRedis(env.REDIS_URL);

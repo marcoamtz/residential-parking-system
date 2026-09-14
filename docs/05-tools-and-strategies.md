@@ -63,12 +63,12 @@ Stack rationale in full lives in the ADRs. This document summarizes the choices,
 - TLS at the load balancer; the API never listens on a public address.
 - Resident personal data in the prototype is name, unit, and email. When plates arrive they are encrypted at the column level (`pgcrypto`) so a database dump alone does not expose them.
 - Backups encrypted at rest (RDS default). Point-in-time recovery enabled.
-- No personal data in application logs. The request logger records method, path, status, and duration only. Enforced in code review via the pull request checklist.
+- No personal data in application logs. The request logger records a fixed field set (request id, method, route, path, status, duration). Unhandled errors pass through `describeError`, which keeps the SQL text with placeholders, the SQLSTATE, and the constraint name but drops bound parameters and row values; a test feeds it an error carrying an email and asserts the email is gone. Reviewed against the pull request checklist.
 
 **Authentication and authorization** ([ADR-0008](adr/0008-mock-auth-jwt-cookie-rbac.md)).
 - Session is an HS256 JWT with a 12 hour expiry in an `HttpOnly`, `Secure`, `SameSite=Strict` cookie. Scripts cannot read it; cross-site requests do not carry it.
 - Role middleware runs before any handler. Resident routes derive the resident from claims; no route accepts a resident id from the client. Admin routes scope every query by the administrator's building.
-- The development login is behind `MOCK_AUTH` and returns `404` in production. Swapping to OIDC replaces one route.
+- The development login is behind `MOCK_AUTH`: on by default outside production, off by default in production, and a startup warning is logged if it is enabled there. Swapping to OIDC replaces one route.
 
 **Common vulnerabilities, mapped to code.**
 | Threat | Control | Where |

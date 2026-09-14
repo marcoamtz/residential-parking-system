@@ -5,7 +5,7 @@ Base path `/api`. JSON in and out. Route definitions in `apps/api/src` are the s
 ## Conventions
 
 - Every input is validated with Zod before a handler runs. Invalid input returns `400` with code `validation_error` and an `issues` list of `{ path, message }`.
-- Errors are `{ "code": string, "message": string }`. Codes are stable identifiers such as `already_registered` or `cycle_already_drawn`; messages are for humans.
+- Errors are `{ "code": string, "message": string }`, including framework errors such as a malformed JSON body (`400 bad_request`). Codes are stable identifiers such as `already_registered` or `cycle_already_drawn`; messages are for humans.
 - Sessions are a signed JWT in an `HttpOnly`, `Secure`, `SameSite=Strict` cookie ([ADR-0008](adr/0008-mock-auth-jwt-cookie-rbac.md)). Missing or invalid session returns `401`; wrong role returns `403`.
 - Every mutating request (anything but `GET`, `HEAD`, `OPTIONS`) must carry `X-Requested-With: parking-web`. Requests without it get `403`. Browsers only send custom headers from same-origin script, which is the second CSRF layer next to the cookie.
 - Resident routes resolve the resident from the session claims. No resident route accepts a resident id as a parameter or in a body.
@@ -29,8 +29,8 @@ Every response carries `X-Request-Id`, taken from the incoming header when a pro
 | --- | --- | --- | --- |
 | GET | `/api/auth/me` | session | Current session claims. |
 | POST | `/api/auth/logout` | none | Clears the cookie. `204`. |
-| GET | `/api/auth/dev-users` | none | Development only (`MOCK_AUTH`). Lists seeded sign-in choices. `404` in production. |
-| POST | `/api/auth/login` | none | Development only. Body `{ email }`. Issues the session cookie. Replaced by an OIDC callback in production. |
+| GET | `/api/auth/dev-users` | none | Development only. Lists seeded sign-in choices. `404` unless `MOCK_AUTH=true`; the default is on outside production and off in production, where enabling it logs a startup warning (the container rehearsal does this on purpose). |
+| POST | `/api/auth/login` | none | Development only, same `MOCK_AUTH` gate. Body `{ email }`. Issues the session cookie. Replaced by an OIDC callback in production. |
 
 ### Resident
 
