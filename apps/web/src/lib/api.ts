@@ -7,11 +7,18 @@ import { hc, type InferResponseType } from "hono/client";
  */
 export const api = hc<AppType>("/", { headers: { "X-Requested-With": "parking-web" } });
 
+/** A field the server rejected, from a `400 validation_error` (docs/03-api.md). */
+export interface ValidationIssue {
+  path: string;
+  message: string;
+}
+
 export class ApiError extends Error {
   constructor(
     readonly status: number,
     readonly code: string,
     message: string,
+    readonly issues: ValidationIssue[] = [],
   ) {
     super(message);
     this.name = "ApiError";
@@ -27,12 +34,18 @@ interface ResponseLike {
 async function okJson<T>(pending: Promise<ResponseLike>): Promise<T> {
   const res = await pending;
   if (res.ok) return (await res.json()) as T;
-  const body = (await res.json().catch(() => ({}))) as { code?: string; message?: string };
-  throw new ApiError(
-    res.status,
-    body.code ?? "request_failed",
-    body.message ?? `HTTP ${res.status}`,
-  );
+  const body = (await res.json().catch(() => ({}))) as {
+    code?: string;
+    message?: string;
+    issues?: ValidationIssue[];
+  };
+  const issues = body.issues ?? [];
+  // A validation error's own message is generic ("Invalid json"); the field messages say what to fix.
+  const message =
+    issues.length > 0
+      ? issues.map((issue) => issue.message).join("; ")
+      : (body.message ?? `HTTP ${res.status}`);
+  throw new ApiError(res.status, body.code ?? "request_failed", message, issues);
 }
 
 export type SessionUser = InferResponseType<typeof api.api.auth.me.$get, 200>["user"];
