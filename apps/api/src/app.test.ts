@@ -1,10 +1,11 @@
 import type { Db } from "@parking/db";
 import { sign } from "hono/jwt";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { createApp } from "./app";
 import { NullCache } from "./cache";
 import { REQUEST_HEADER, REQUEST_HEADER_VALUE } from "./csrf";
 import type { Role } from "./deps";
+import { logger } from "./observability";
 
 /** Routes that fail before touching the database, exercised in-process with app.request(). */
 const SECRET = "test-secret-at-least-16-chars";
@@ -109,6 +110,21 @@ describe("error contract", () => {
     expect(res.status).toBe(404);
     expect(res.headers.get("content-type")).toContain("application/json");
     expect(await res.json()).toEqual({ code: "not_found", message: "Route not found" });
+  });
+
+  it("logs the route pattern, never the client-supplied path", async () => {
+    const warn = vi.spyOn(logger, "warn").mockImplementation(() => undefined);
+    await app.request("/api/round3-sensitive@example.com");
+    // Matches a route; the parameter fails validation (400) and must not be logged either.
+    await app.request("/api/admin/cycles/someone@example.com", {
+      headers: { cookie: await sessionCookie("admin") },
+    });
+    const entries = warn.mock.calls.map(([entry]) => entry as Record<string, unknown>);
+    warn.mockRestore();
+
+    expect(entries.map((e) => e.route)).toEqual(["unmatched", "/api/admin/cycles/:id"]);
+    for (const entry of entries) expect(entry).not.toHaveProperty("path");
+    expect(JSON.stringify(entries)).not.toContain("example.com");
   });
 
   it("echoes a supplied request id and generates one otherwise", async () => {

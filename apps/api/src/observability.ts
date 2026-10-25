@@ -5,9 +5,11 @@ import type { AppEnv } from "./deps";
 
 /**
  * Structured logs and Prometheus metrics. One JSON line per request with the request id, method,
- * matched route, path, status, and duration. Never the body, never the query string, never a
- * cookie. The path is logged because unmatched routes need it; this API's paths carry route names
- * and UUIDs only, never resident data (ADR-0008). Errors are logged through `describeError`.
+ * matched route pattern, status, and duration. Never the path, the body, the query string, or a
+ * cookie: those are client-supplied and may carry anything, so resident data cannot reach the
+ * request log (ADR-0008, ADR-0013). Unmatched requests log the route as "unmatched". Request ids
+ * are honored only when they match hono/request-id's `[\w-=]{1,255}`. Errors are logged through
+ * `describeError`.
  */
 export const logger = pino({
   level: process.env.LOG_LEVEL ?? "info",
@@ -66,7 +68,6 @@ export const requestLogging: MiddlewareHandler<AppEnv> = async (c, next) => {
     requestId: c.get("requestId"),
     method: c.req.method,
     route,
-    path: c.req.path,
     status,
     durationMs: Math.round(durationMs * 10) / 10,
   };
