@@ -91,6 +91,20 @@ describe("POST /api/admin/cycles", () => {
     await expect(direct).rejects.toMatchObject({ cause: { code: "23P01" } });
   });
 
+  it("rejects impossible calendar dates with 400 before they reach PostgreSQL", async () => {
+    const b = await building();
+    for (const startsOn of ["2026-02-30", "2026-02-31"]) {
+      const res = await createCycle(b, startsOn, "2026-03-31");
+      expect(res.status).toBe(400);
+      expect(await res.json()).toMatchObject({
+        code: "validation_error",
+        issues: [{ path: "startsOn", message: "Expected a calendar date, YYYY-MM-DD" }],
+      });
+    }
+    // A leap day is a real date.
+    expect((await createCycle(b, "2028-02-29", "2028-03-31")).status).toBe(201);
+  });
+
   it("accepts the adjacent quarter and the same period in another building", async () => {
     const b = await building();
     expect((await createCycle(b, "2030-10-01", "2030-12-31")).status).toBe(201);

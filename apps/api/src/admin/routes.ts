@@ -12,7 +12,9 @@ import { runDraw } from "./draw";
 
 const { parkingSpots } = schema;
 
-const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Expected YYYY-MM-DD");
+// A real calendar date (rejects 2026-02-30), not just the YYYY-MM-DD shape: PostgreSQL would
+// otherwise reject it after validation and the request would end in a 500.
+const isoDate = z.iso.date("Expected a calendar date, YYYY-MM-DD");
 const idParam = z.object({ id: z.uuid() });
 
 export function adminRoutes(deps: Deps) {
