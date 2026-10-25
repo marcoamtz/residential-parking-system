@@ -11,7 +11,7 @@ RUN npm install -g pnpm@${PNPM_VERSION}
 WORKDIR /repo
 COPY . .
 # Same turbo version as the lockfile, so pruning is reproducible.
-RUN pnpm dlx turbo@2.10.12 prune @parking/web --docker
+RUN pnpm dlx turbo@2.11.10 prune @parking/web --docker
 
 # ---- install and build the static bundle --------------------------------------------------------
 FROM node:${NODE_VERSION}-alpine AS builder
