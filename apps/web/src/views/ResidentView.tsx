@@ -48,7 +48,10 @@ export function ResidentView() {
             ) : (
               <>
                 <p className="text-lg font-medium">No spot this quarter</p>
-                <Muted>Residents who go without a spot rank first in the next draw.</Muted>
+                <Muted>
+                  In the next draw you rank ahead of everyone holding a spot this quarter; the
+                  longest wait goes first.
+                </Muted>
               </>
             )}
           </CardContent>
