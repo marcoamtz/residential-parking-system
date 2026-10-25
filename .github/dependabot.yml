@@ -1,0 +1,20 @@
+# Weekly version-update pull requests. Pinned action SHAs and the pnpm lockfile only stay current
+# if something proposes the bumps; CI and review decide whether they land.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      # One pull request per week for minor and patch updates; a major update gets its own.
+      dependencies:
+        patterns: ["*"]
+        update-types: [minor, patch]
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
