@@ -6,7 +6,7 @@ A record's decision is never rewritten once accepted. A change of decision or co
 
 | ID | Title | Status |
 | --- | --- | --- |
-| [0001](0001-modular-monolith-in-pnpm-workspace.md) | Modular monolith in a pnpm workspace | Accepted |
+| [0001](0001-modular-monolith-in-pnpm-workspace.md) | Modular monolith in a pnpm workspace | Accepted, amended 2026-10-25 |
 | [0002](0002-postgresql-with-drizzle.md) | PostgreSQL with Drizzle ORM | Accepted, amended 2026-09-14 |
 | [0003](0003-fairness-ranking-rule.md) | Fairness ranking rule for the quarterly draw | Accepted |
 | [0004](0004-draw-idempotency-via-cycle-state.md) | Draw idempotency via cycle state transition | Accepted, amended 2026-09-14 |

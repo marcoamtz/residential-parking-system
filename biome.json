@@ -31,6 +31,98 @@
       "quoteStyle": "double"
     }
   },
+  "overrides": [
+    {
+      "includes": ["packages/domain/src/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": ["@parking/*"],
+                    "message": "the domain imports nothing from the workspace (ADR-0001)"
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["packages/db/src/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "paths": {
+                  "@parking/api": {
+                    "message": "db depends on drizzle and pg only (ADR-0001)"
+                  },
+                  "@parking/web": {
+                    "message": "db depends on drizzle and pg only (ADR-0001)"
+                  },
+                  "@parking/domain": {
+                    "message": "db depends on drizzle and pg only (ADR-0001)"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["apps/api/src/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "paths": {
+                  "@parking/web": {
+                    "message": "the api never imports the web app (ADR-0001)"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["apps/web/src/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "paths": {
+                  "@parking/db": {
+                    "message": "the web app imports only the API's route types (ADR-0001)"
+                  },
+                  "@parking/domain": {
+                    "message": "the web app imports only the API's route types (ADR-0001)"
+                  },
+                  "@parking/api": {
+                    "allowImportNames": ["AppType"],
+                    "message": "the web app imports only the API's route types (ADR-0001)"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
   "assist": {
     "enabled": true,
     "actions": {

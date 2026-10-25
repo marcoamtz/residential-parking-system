@@ -29,3 +29,7 @@ pnpm workspaces manage the packages. Turborepo runs `build`, `typecheck`, and `t
 - Single package with folders: no compile-time enforcement of boundaries; easy to leak database code into domain logic.
 - Microservices from day one: operational overhead with no scaling pressure to justify it.
 - Nx instead of Turborepo: more features, more configuration, plugin maintenance. Turborepo works on plain npm scripts, which is all this project needs.
+
+## Amendment, 2026-10-25: how the boundaries are enforced
+
+"Enforce boundaries at compile time" is carried by existing tools, not repository scripts. pnpm's strict resolution blocks undeclared packages. Biome's `noRestrictedImports`, configured per package in `biome.json`, rejects the forbidden workspace imports (the domain imports nothing from the workspace, `db` nothing from `api`, `web`, or `domain`, `api` never `web`, and `web` only `AppType` from `api`) in every syntactic form Biome parses, including re-exports, `import()` with a string literal, and `require()`; comments and type positions are ignored. Each package's `tsconfig.json` sets `rootDir: "."`, so a relative import that leaves the package fails typecheck with TS6059. They replace a repository script that matched imports with regular expressions, which both missed valid forbidden forms and rejected valid code; the two tools above already parse TypeScript. Known gap: a template-literal `import()` specifier is not checked.

@@ -1,6 +1,6 @@
 # Architecture
 
-The system is a modular monolith: one API process, one PostgreSQL database, one Redis instance, and a static web client. Boundaries are kept at the package level (pnpm strict resolution plus `pnpm check:boundaries` in CI and before push) so that the parts most likely to change (the camera subsystem, the identity provider, the scheduler) attach at seams that already exist. Decisions with lasting consequences are recorded in [docs/adr](adr/README.md); this document shows how they fit together.
+The system is a modular monolith: one API process, one PostgreSQL database, one Redis instance, and a static web client. Boundaries are kept at the package level (pnpm strict resolution, Biome import rules per package, and `rootDir` in each package's TypeScript config; see the README) so that the parts most likely to change (the camera subsystem, the identity provider, the scheduler) attach at seams that already exist. Decisions with lasting consequences are recorded in [docs/adr](adr/README.md); this document shows how they fit together.
 
 ## System overview
 

@@ -69,9 +69,9 @@ jobs:
         if: github.event_name == 'pull_request'
         run: node scripts/check-commit-range.mjs "origin/${{ github.base_ref }}..HEAD"
 
+      # Lint carries the package-boundary rules (biome.json overrides); typecheck rejects relative
+      # imports that leave a package (rootDir in each package's tsconfig).
       - run: pnpm lint
-      - run: pnpm check:boundaries
-      - run: pnpm test:scripts
       - run: pnpm typecheck
       - run: pnpm db:migrate
       - run: pnpm test

@@ -107,7 +107,7 @@ docs/
   adr/        Architecture decision records.
 ```
 
-Boundaries: `domain` imports nothing from the workspace, `db` imports nothing from `api`, and `web` imports only the API's route types. pnpm's strict resolution blocks undeclared packages; `pnpm check:boundaries` (CI and pre-push) blocks relative imports that leave a package and runtime imports where only types are allowed, scanning static, dynamic (`import()`), and `require()` specifiers. Its scanner is unit-tested (`pnpm test:scripts`).
+Boundaries: `domain` imports nothing from the workspace, `db` imports nothing from `api`, `web`, or `domain`, `api` never imports `web`, and `web` imports only the API's `AppType`. pnpm's strict resolution blocks undeclared packages. Biome's `noRestrictedImports` (per-package overrides in `biome.json`, so `pnpm lint`, the pre-commit hook, and CI) rejects forbidden workspace imports in static, re-export, dynamic `import("...")`, and `require("...")` forms, ignoring comments and type positions; a template-literal ``import(`...`)`` is not seen. Each package's `tsconfig.json` sets `rootDir: "."`, so `pnpm typecheck` fails (TS6059) on a relative import that leaves the package.
 
 ## Status
 
