@@ -10,7 +10,7 @@ A record's decision is never rewritten once accepted. A change of decision or co
 | [0002](0002-postgresql-with-drizzle.md) | PostgreSQL with Drizzle ORM | Accepted, amended 2026-09-14 |
 | [0003](0003-fairness-ranking-rule.md) | Fairness ranking rule for the quarterly draw | Accepted |
 | [0004](0004-draw-idempotency-via-cycle-state.md) | Draw idempotency via cycle state transition | Accepted, amended 2026-09-14 |
-| [0005](0005-redis-cache-aside-with-version-key.md) | Redis cache-aside with a version key | Accepted, amended 2026-09-14 |
+| [0005](0005-redis-cache-aside-with-version-key.md) | Redis cache-aside with a version key | Accepted, amended 2026-09-14 and 2026-10-25 |
 | [0006](0006-hono-api-with-shared-types.md) | Hono API with shared request/response types | Accepted |
 | [0007](0007-scheduling-deferred-behind-admin-endpoint.md) | Scheduling deferred behind an admin endpoint | Superseded by 0012 |
 | [0008](0008-mock-auth-jwt-cookie-rbac.md) | Mock authentication with JWT cookie and role checks | Accepted, amended 2026-09-14 |

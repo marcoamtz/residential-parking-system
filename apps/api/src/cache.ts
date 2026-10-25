@@ -3,8 +3,9 @@ import { describeError } from "./errors";
 import { cacheRequests, logger } from "./observability";
 
 /**
- * Cache-aside with a per-building version key (ADR-0005). Any failure degrades to a miss:
- * the cache is never required for correctness.
+ * Cache-aside with a per-building version key (ADR-0005). Any failure degrades to a miss: no
+ * decision depends on the cache. A bump lost to an outage leaves earlier entries readable once
+ * Redis returns, until their TTL; that bound is accepted (ADR-0005, amendment).
  */
 export interface Cache {
   getVersion(buildingId: string): Promise<number>;
@@ -37,7 +38,10 @@ export function createCacheRedis(url: string, overrides: RedisOptions = {}): Red
   return redis;
 }
 
-/** After one failed command the cache is skipped for this long, so one request pays for one timeout. */
+/**
+ * After one failed command, reads and write-backs skip the cache for this long, so a read during a
+ * stall pays for one timeout instead of three. Invalidation (`bump`) is never skipped.
+ */
 const BYPASS_AFTER_FAILURE_MS = 1_000;
 
 export class RedisCache implements Cache {
@@ -55,7 +59,9 @@ export class RedisCache implements Cache {
   }
 
   async bump(buildingId: string): Promise<void> {
-    await this.guard(() => this.redis.incr(versionKey(buildingId)));
+    // Always attempted, even inside the bypass window: a skipped INCR would leave every entry of the
+    // building readable once Redis answers again, stale until the TTL.
+    await this.guard(() => this.redis.incr(versionKey(buildingId)), { bypassable: false });
   }
 
   async get<T>(key: string): Promise<T | null> {
@@ -75,10 +81,17 @@ export class RedisCache implements Cache {
     }
   }
 
-  private async guard<T>(operation: () => Promise<T>): Promise<T | null> {
-    if (this.now() < this.bypassUntil) return null;
+  private async guard<T>(
+    operation: () => Promise<T>,
+    { bypassable = true }: { bypassable?: boolean } = {},
+  ): Promise<T | null> {
+    if (bypassable && this.now() < this.bypassUntil) return null;
     try {
-      return await operation();
+      const result = await operation();
+      // Redis answered: end any bypass, and let the next outage log its own warning.
+      this.bypassUntil = 0;
+      this.warned = false;
+      return result;
     } catch (error) {
       // A stalled server times out every command; without this, a read would wait for the version,
       // the value, and the write-back in turn. Bypass briefly, then probe again.
