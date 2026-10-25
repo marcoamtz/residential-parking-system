@@ -50,7 +50,7 @@ pnpm scheduler --once             # optional: today's rotation check (draw due c
 
 `pnpm scheduler` without `--once` runs the long-lived worker that does the same check daily at 06:00 UTC ([ADR-0012](docs/adr/0012-rotation-worker-with-bullmq.md)). A building whose rotation fails is logged and skipped, the others still run, and the run then exits 1 (or fails the job) so it is noticed; the next run retries it.
 
-No `.env` file is needed for local development: `pnpm dev`, `pnpm db:seed`, and `pnpm scheduler` run with `NODE_ENV=development` unless you set it, and in development the API falls back to the Docker Compose connection strings and a development-only JWT secret. To override anything, `cp .env.example .env` and edit; the file documents every variable and its default. An unset `NODE_ENV` means production: `DATABASE_URL`, `REDIS_URL`, and `JWT_SECRET` are then required and the API refuses to start without them, the password-less login is off, and the seed refuses to run.
+No `.env` file is needed for local development: `pnpm dev`, `pnpm db:seed`, and `pnpm scheduler` run with `NODE_ENV=development` unless you set it, and in development the API falls back to the Docker Compose connection strings and a development-only JWT secret. To override anything, `cp .env.example .env` and edit; the file documents every variable and its default. Outside those scripts an unset `NODE_ENV` means production: a bare `node dist/index.js` requires `DATABASE_URL`, `REDIS_URL`, and `JWT_SECRET` and refuses to start without them, and the password-less login is off. `NODE_ENV=production pnpm db:seed` refuses to run.
 
 To start over from an empty database: `docker compose down -v`, then repeat from `docker compose up -d --wait`.
 
