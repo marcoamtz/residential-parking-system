@@ -25,6 +25,7 @@ Stack rationale in full lives in the ADRs. This document summarizes the choices,
 | Vitest | Same runner for pure domain tests, PostgreSQL-backed integration tests (against a dedicated `parking_test` database that the global setup creates and migrates), and React component tests (Testing Library on jsdom). |
 | Docker Compose | PostgreSQL and Redis locally with health checks; the same images CI uses as services. |
 | lefthook | Git hooks installed by `pnpm install`: Biome on staged files at commit, Conventional Commits check on the message, typecheck and the database-free tests before push. CI enforces the same gates; the hooks exist to fail fast. |
+| Turborepo | Runs `dev`, `typecheck`, `test`, and `build` across the packages with caching; `globalPassThroughEnv` in `turbo.json` hands every variable in `.env.example` to the tasks without hashing it into the cache, so a shell setting such as `NODE_ENV=production pnpm dev` or `TEST_DATABASE_URL=… pnpm test` at the root reaches the process instead of being dropped by Turbo's strict environment mode. |
 | `tsx` | Runs TypeScript directly in development and for scripts (migrate, seed). |
 | `tsup` | Bundles the API and its workspace packages into one artifact for the container image. |
 | GitHub Actions | Lint, typecheck, migrate, test against real services, build, with Turborepo cache restored between runs. |
