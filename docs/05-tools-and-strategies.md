@@ -78,6 +78,7 @@ Stack rationale in full lives in the ADRs. This document summarizes the choices,
 | CSRF | `SameSite=Strict` cookie plus a required `X-Requested-With` header on every mutating request | `apps/api/src/csrf.ts` |
 | Broken object-level authorization | Resident id from session claims; admin queries filtered by `building_id`; cross-tenant access returns 404 | `residentIdOf`, admin routes, integration test "does not let a building draw another building's cycle" |
 | Mass assignment | Zod schemas whitelist exactly the accepted fields | every `zValidator` call |
+| Oversized request bodies | 16 KB cap on every route, `413 payload_too_large`, enforced by the API itself because the load balancer forwards bodies unchanged | `bodyLimit` in `apps/api/src/app.ts`; `app.test.ts` |
 | Race conditions | State-transition mutex and unique constraints | `runDraw`, schema |
 | Session theft | HttpOnly cookie; short expiry; secret from the environment, rotated by redeploy | `apps/api/src/auth/session.ts` |
 | Clickjacking, MIME sniffing, referrer leakage | API: Hono `secureHeaders` (`X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, restrictive CSP for a JSON API). Web edge: nginx sets the same plus a CSP that allows only the app's own bundles (`style-src 'unsafe-inline'` for Radix inline styles), `server_tokens off`, `/api/metrics` blocked at the edge | `apps/api/src/app.ts`, `apps/web/security-headers.conf`, `apps/web/nginx.conf.template`; asserted in `app.test.ts` and the CI compose rehearsal |

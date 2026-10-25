@@ -112,6 +112,19 @@ describe("error contract", () => {
     expect(await res.json()).toEqual({ code: "not_found", message: "Route not found" });
   });
 
+  it("rejects a body over 16 KB with 413 before parsing it", async () => {
+    const res = await app.request("/api/auth/login", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ email: `${"a".repeat(20_000)}@parking.local` }),
+    });
+    expect(res.status).toBe(413);
+    expect(await res.json()).toEqual({
+      code: "payload_too_large",
+      message: "Request body exceeds 16 KB",
+    });
+  });
+
   it("logs the route pattern, never the client-supplied path", async () => {
     const warn = vi.spyOn(logger, "warn").mockImplementation(() => undefined);
     await app.request("/api/round3-sensitive@example.com");
