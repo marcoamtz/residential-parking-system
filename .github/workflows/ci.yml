@@ -112,9 +112,12 @@ jobs:
           set -eux
           # The worker probe (exact healthcheck command) must match the real worker and must not
           # match a container without one; the previous unanchored pattern matched its own shell.
+          # Negative checks use if/exit: `set -e` ignores the status of a `!`-negated command.
           probe="pgrep -f '^node dist/scheduler\.js$' > /dev/null || exit 1"
           docker compose -f docker-compose.yml -f docker-compose.images.yml exec -T scheduler sh -c "$probe"
-          ! docker compose -f docker-compose.yml -f docker-compose.images.yml run --rm --no-deps -T --entrypoint sh api -c "$probe" </dev/null
+          if docker compose -f docker-compose.yml -f docker-compose.images.yml run --rm --no-deps -T --entrypoint sh api -c "$probe" </dev/null; then
+            echo "worker probe matched a container without the worker"; exit 1
+          fi
           # The health assertion above must reject an unhealthy service.
           test "$(printf 'healthy\nunhealthy\n' | grep -vxc healthy)" = "1"
       - name: Edge behaves as documented
@@ -125,7 +128,9 @@ jobs:
           curl -sS -o /dev/null -w '%{http_code}\n' http://localhost:8080/api/metrics | grep -x 404
           curl -sSI http://localhost:8080/ | grep -i 'content-security-policy'
           curl -sSI http://localhost:8080/ | grep -i 'x-content-type-options: nosniff'
-          ! curl -sSI http://localhost:8080/ | grep -i 'server: nginx/'
+          if curl -sSI http://localhost:8080/ | grep -i 'server: nginx/'; then
+            echo "edge discloses the nginx version"; exit 1
+          fi
           docker compose -f docker-compose.yml -f docker-compose.images.yml exec -T web id -u | grep -x 101
           docker compose -f docker-compose.yml -f docker-compose.images.yml exec -T api id -u | grep -x 1000
       - name: Tear down
