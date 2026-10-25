@@ -5,6 +5,7 @@ Base path `/api`. JSON in and out. Route definitions in `apps/api/src` are the s
 ## Conventions
 
 - Every input is validated with Zod before a handler runs. Invalid input returns `400` with code `validation_error` and an `issues` list of `{ path, message }`.
+- Request bodies are capped at 16 KB; a larger one gets `413 payload_too_large` before it is parsed.
 - Errors are `{ "code": string, "message": string }`, including framework errors such as a malformed JSON body (`400 bad_request`). Codes are stable identifiers such as `already_registered` or `cycle_already_drawn`; messages are for humans.
 - Sessions are a signed JWT in an `HttpOnly`, `SameSite=Strict` cookie, flagged `Secure` in production (`NODE_ENV=production`; local development runs over plain HTTP) ([ADR-0008](adr/0008-mock-auth-jwt-cookie-rbac.md)). Missing or invalid session returns `401`; wrong role returns `403`.
 - Every mutating request (anything but `GET`, `HEAD`, `OPTIONS`) must carry `X-Requested-With: parking-web`. Requests without it get `403`. Browsers only send custom headers from same-origin script, which is the second CSRF layer next to the cookie.
@@ -30,7 +31,7 @@ Every response carries `X-Request-Id`, taken from the incoming header when a pro
 | GET | `/api/auth/me` | session | Current session claims. |
 | POST | `/api/auth/logout` | none | Clears the cookie. `204`. |
 | GET | `/api/auth/dev-users` | none | Development only. Lists seeded sign-in choices. `404` unless `MOCK_AUTH=true`; the default is on outside production and off in production, where enabling it logs a startup warning (the container rehearsal does this on purpose). |
-| POST | `/api/auth/login` | none | Development only, same `MOCK_AUTH` gate. Body `{ email }`. Issues the session cookie. Replaced by an OIDC callback in production. |
+| POST | `/api/auth/login` | none | Development only, same `MOCK_AUTH` gate, checked before the body is parsed, so every request gets `404` when it is off. Body `{ email }`. Issues the session cookie. Replaced by an OIDC callback in production. |
 
 ### Resident
 
@@ -47,7 +48,7 @@ Withdrawing a registration is intentionally not implemented. It is the documente
 | Method | Path | Notes |
 | --- | --- | --- |
 | GET | `/api/admin/cycles` | Cycles for the building with registration counts, newest first. |
-| POST | `/api/admin/cycles` | Body `{ startsOn, endsOn }` as `YYYY-MM-DD`. Sequence is assigned server-side. `201`. `409 open_cycle_exists` if a cycle is already open (enforced by a partial unique index). |
+| POST | `/api/admin/cycles` | Body `{ startsOn, endsOn }`, real calendar dates as `YYYY-MM-DD` (`2026-02-30` is a `400 validation_error`). Sequence is assigned server-side. `201`. `400 invalid_period` unless `endsOn` is after `startsOn`. `409 open_cycle_exists` if a cycle is already open (enforced by a partial unique index). `400 cycle_not_after_latest` unless `startsOn` is after the `endsOn` of the building's latest cycle, so sequence order stays chronological. `409 cycle_overlap` if the database's exclusion constraint rejects an overlapping period, bounds inclusive; through this route the previous check fires first. |
 | GET | `/api/admin/cycles/:id` | Cycle, every registration with rank and spot when drawn, and the draw's seed and time. |
 | GET | `/api/admin/cycles/:id/verification` | The same verification record residents get, for the administrator's building. |
 | POST | `/api/admin/cycles/:id/draw` | Runs the draw in one transaction ([ADR-0004](adr/0004-draw-idempotency-via-cycle-state.md)). `201` with counts. `409 cycle_already_drawn` on a repeat. |
@@ -72,4 +73,4 @@ Withdrawing a registration is intentionally not implemented. It is the documente
 - Version key: `building:{buildingId}:version`, an integer.
 - Value key: `building:{buildingId}:v{version}:s{schema}:resident:{residentId}:status`, TTL 300 seconds. `schema` is a constant in `apps/api/src/cache.ts`, bumped when the payload shape changes so a deploy never serves entries written by the previous release.
 - Writes that bump the version after their transaction commits: registration, cycle creation, draw, spot creation, spot activation change.
-- If Redis is unreachable the first failure is logged once and every read falls through to PostgreSQL. Each command times out after 300 ms (no offline queue), and the first failure bypasses the cache for one second, so a read pays for at most one timeout rather than one per command (version, value, write-back). Unreachable Redis fails immediately; a stalled one costs about 300 ms once per second. Nothing depends on the cache for correctness. Verified by `apps/api/src/cache.test.ts` against an unreachable port and a stalled client, and by a live measurement: status reads in 9–30 ms with Redis stopped.
+- If Redis is unreachable the first failure is logged once per outage and every read falls through to PostgreSQL. Each command times out after 300 ms (no offline queue), and a failure makes reads and write-backs skip the cache for one second, so a read normally pays for one timeout rather than one per command (version, value, write-back); a read whose database load outlasts that second can pay a second timeout on the write-back. Unreachable Redis fails immediately; a stalled one costs about 300 ms once per second. The version bump is never skipped, so a write made while Redis is answering always invalidates. A write made while Redis is unreachable cannot bump: if Redis then returns with its data, entries cached before the outage are served until their 300 second TTL. Nothing depends on the cache for the correctness of a decision; the TTL bounds how stale a status page can be. Verified by `apps/api/src/cache.test.ts` against an unreachable port and a stalled client, and by a live measurement: status reads in 9–30 ms with Redis stopped.

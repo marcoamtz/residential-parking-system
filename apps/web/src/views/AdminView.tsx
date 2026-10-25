@@ -271,6 +271,7 @@ function SpotsCard() {
             value={label}
             onChange={(e) => setLabel(e.target.value)}
             placeholder="P5"
+            maxLength={20}
           />
           <Button type="submit" variant="outline" disabled={create.isPending}>
             Add

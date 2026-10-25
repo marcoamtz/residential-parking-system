@@ -23,3 +23,9 @@ The API needed three things before it could be operated: a way to follow one req
 - OpenTelemetry from the start: the right long-term shape, but it needs a collector and answers questions this system does not yet ask.
 - Vendor agents (Datadog, New Relic): fast to add, but they tie the prototype to a subscription for two counters and a histogram.
 - `console.log`: no structure, no levels, no redaction; the review found resident data in exactly the kind of error log this decision replaces.
+
+## Amendment, 2026-10-25: the request log carries the route pattern, not the path
+
+The **Logs** bullet above was rewritten in place on 2026-09-14 (commit c50dacf). Two changes in that rewrite were decisions, not wording, and are recorded here: every error log site (HTTP handler, rotation worker, cache client) goes through `describeError`, not only unhandled HTTP errors; and the path stayed in the field set on the claim that this API's paths carry route names and UUIDs only.
+
+That claim was wrong. The path is client-supplied: an unmatched request, or a route parameter that fails validation, puts whatever the client sent into the log line. The path is now dropped from the request log. The field set is request id, method, matched route pattern, status, and duration; a request for no route logs the route `unmatched`, which is also its metric label. A supplied `X-Request-Id` is kept only when it matches `[\w-=]{1,255}` (`hono/request-id`), so it cannot carry an email either. Consequence: the API log no longer shows which unknown path a client asked for; the `unmatched` label and the request id are what remain, which is enough to see that clients are calling a route that does not exist. Test: `apps/api/src/app.test.ts` ("logs the route pattern, never the client-supplied path").

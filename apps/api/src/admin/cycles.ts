@@ -1,7 +1,7 @@
 import type { Db } from "@parking/db";
 import { schema } from "@parking/db";
 import { and, asc, count, desc, eq, sql } from "drizzle-orm";
-import { HttpError, isUniqueViolation } from "../errors";
+import { HttpError, isExclusionViolation, isUniqueViolation } from "../errors";
 
 const { raffleCycles, raffleRegistrations, spotAllocations, parkingSpots, residents, raffleDraws } =
   schema;
@@ -31,10 +31,23 @@ export async function createCycle(
   if (period.endsOn <= period.startsOn) {
     throw new HttpError(400, "invalid_period", "endsOn must be after startsOn");
   }
+  // Sequence order must be chronological: the rotation takes the highest sequence as the latest
+  // cycle, and the ranking measures waits as sequence differences. So a new cycle starts after the
+  // building's latest one ends. The exclusion constraint still guards any other writer.
   const [last] = await db
-    .select({ max: sql<number>`coalesce(max(${raffleCycles.sequence}), 0)::int` })
+    .select({
+      max: sql<number>`coalesce(max(${raffleCycles.sequence}), 0)::int`,
+      latestEndsOn: sql<string | null>`max(${raffleCycles.endsOn})::text`,
+    })
     .from(raffleCycles)
     .where(eq(raffleCycles.buildingId, buildingId));
+  if (last?.latestEndsOn && period.startsOn <= last.latestEndsOn) {
+    throw new HttpError(
+      400,
+      "cycle_not_after_latest",
+      `startsOn must be after the building's latest cycle, which ends on ${last.latestEndsOn}`,
+    );
+  }
   const sequence = (last?.max ?? 0) + 1;
 
   try {
@@ -53,6 +66,13 @@ export async function createCycle(
   } catch (error) {
     if (isUniqueViolation(error)) {
       throw new HttpError(409, "open_cycle_exists", "A cycle is already open for this building");
+    }
+    if (isExclusionViolation(error)) {
+      throw new HttpError(
+        409,
+        "cycle_overlap",
+        "The period overlaps another cycle of this building",
+      );
     }
     throw error;
   }

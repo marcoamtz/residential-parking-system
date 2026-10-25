@@ -112,7 +112,7 @@ erDiagram
   users |o--o{ raffle_draws : executes
 ```
 
-Schema: `packages/db/src/schema.ts`. Migration: `packages/db/drizzle/0000_initial_schema.sql`.
+Schema: `packages/db/src/schema.ts`. Migrations: `packages/db/drizzle/0000_initial_schema.sql`, plus `0001_cycles_never_overlap.sql` for the one constraint Drizzle cannot express.
 
 ### Constraints and the invariant each one enforces
 
@@ -126,13 +126,16 @@ Schema: `packages/db/src/schema.ts`. Migration: `packages/db/drizzle/0000_initia
 | `raffle_cycles` UNIQUE `(building_id, sequence)` | Cycle distances used by the ranking rule are well defined. |
 | `raffle_cycles` partial UNIQUE `(building_id) WHERE status = 'open'` | At most one cycle accepts registrations per building. |
 | `raffle_cycles` CHECK `ends_on > starts_on`, `sequence > 0` | Periods and sequences are sane. |
+| `raffle_cycles` EXCLUDE USING gist `(building_id WITH =, daterange(starts_on, ends_on, '[]') WITH &&)` | Cycles of one building never overlap, so a spot allocated in one cycle cannot be handed to someone else by an overlapping cycle on the same day. Through the API the service check below rejects overlap first; the constraint is the guard for any other writer (`409 cycle_overlap` if it fires through the service). Needs the `btree_gist` extension, created by the migration. |
 | `raffle_draws` UNIQUE `(cycle_id)` | One verification record per cycle. |
 | `users` CHECK `role = 'admin' OR resident_id IS NOT NULL` | A resident login is always linked to a resident. |
 | `users` UNIQUE `(email)`, UNIQUE `(resident_id)` | One login per email, one login per resident. |
 | `residents` UNIQUE `(building_id, email)` | No duplicate residents within a building. |
 | `parking_spots` UNIQUE `(building_id, label)` | Spot labels are unambiguous within a building. |
 
-Uniqueness is declared as table constraints rather than unique indexes so that they exist inside `CREATE TABLE`, before the composite foreign key that depends on one of them is added. The one partial uniqueness rule must be an index, because PostgreSQL has no partial unique constraint.
+Uniqueness is declared as table constraints rather than unique indexes so that they exist inside `CREATE TABLE`, before the composite foreign key that depends on one of them is added. The one partial uniqueness rule must be an index, because PostgreSQL has no partial unique constraint. The exclusion constraint is written in SQL in its own migration, because Drizzle cannot declare `EXCLUDE`; `schema.ts` carries a comment pointing at it.
+
+One ordering rule is a service check rather than a constraint: `createCycle` accepts a period only if it starts after the building's latest cycle ends (`400 cycle_not_after_latest`), reading that date in the same statement as the next sequence number. Sequence order is therefore chronological, which two readers rely on: the rotation takes the highest sequence as the latest cycle, and the ranking measures a wait as a difference of sequences. A back-dated cycle would otherwise take the highest sequence, send the rotation into an occupied quarter on every run, and distort waits.
 
 ### Why history is not a separate table
 
@@ -144,7 +147,7 @@ For a building with E entrants, S active spots, and H registrations in its histo
 
 ### Indexes and the queries that use them
 
-Every index in the schema, including the ones PostgreSQL creates for primary keys and unique constraints (`pg_indexes` on a migrated database lists exactly these 21).
+Every index in the schema, including the ones PostgreSQL creates for primary keys and unique constraints (`pg_indexes` on a migrated database lists exactly these 22).
 
 | Table | Index | Kind | Query it serves |
 | --- | --- | --- | --- |
@@ -159,6 +162,7 @@ Every index in the schema, including the ones PostgreSQL creates for primary key
 | `raffle_cycles` | `(id)` | primary key | Cycle by id in admin, draw, verification |
 | `raffle_cycles` | `(building_id, sequence)` | unique | Cycle list and next sequence number; ranking distances |
 | `raffle_cycles` | `(building_id) WHERE status = 'open'` | partial unique | The open cycle on every status read and registration; one-open-per-building invariant |
+| `raffle_cycles` | `(building_id, daterange(starts_on, ends_on, '[]'))` | gist, exclusion | No-overlap invariant only; no query reads through it |
 | `raffle_registrations` | `(id)` | primary key | Allocation to registration |
 | `raffle_registrations` | `(cycle_id, resident_id)` | unique | "Is this resident registered for the open cycle"; entrants of a cycle for the draw and the admin results (leading column) |
 | `raffle_registrations` | `(id, cycle_id)` | unique | Target of the composite foreign key from allocations; integrity only |
@@ -178,4 +182,4 @@ The admin results screen starts from `raffle_registrations` filtered by cycle an
 - **Households with more than one vehicle.** Out of scope. Modeling it means a `vehicles` table and a decision about whether a household can hold two spots in one cycle. That decision belongs to building rules, not to code, so it is deliberately left open.
 - **Mid-cycle move-outs.** A resident who moves out keeps their history and cannot register. Their current allocation stays until the cycle ends. Releasing a spot mid-cycle and reassigning it (to the next ranked entrant of that draw, using the stored ranking) is a small, well-defined follow-up.
 - **Time zones.** Dates are compared in UTC. A building in UTC-6 could see its cycle start a few hours late on the boundary day. The fix is a `timezone` column on `buildings` and computing "today" per building.
-- **Quarter alignment.** The system does not force cycles onto calendar quarters. The administrator picks the period; the seed fixture uses calendar quarters because that is what the brief describes.
+- **Quarter alignment.** The system does not force cycles onto calendar quarters. The administrator picks the period; the seed fixture uses calendar quarters because that is what the brief describes. Whatever the period, it must start after the building's latest cycle ends and cannot overlap another cycle (rules above).

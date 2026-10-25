@@ -8,6 +8,7 @@ import {
   RedisCache,
   withCache,
 } from "./cache";
+import { logger } from "./observability";
 
 /** In-memory Cache with the same semantics as RedisCache, for unit-testing withCache. */
 class MemoryCache implements Cache {
@@ -143,13 +144,44 @@ describe("RedisCache with Redis stalled", () => {
     expect(calls).toEqual({ get: 1, set: 0, incr: 0 });
 
     await withCache(cache, "b", "status", 60, load);
-    await cache.bump("b");
     expect(calls).toEqual({ get: 1, set: 0, incr: 0 });
+
+    // Invalidation is not bypassed: a write during the window still issues its INCR.
+    await cache.bump("b");
+    expect(calls).toEqual({ get: 1, set: 0, incr: 1 });
 
     clock = 1_001;
     await withCache(cache, "b", "status", 60, load);
     expect(calls.get).toBe(2);
     expect(load).toHaveBeenCalledTimes(3);
+  });
+});
+
+describe("RedisCache warnings", () => {
+  it("warns once per outage, again after Redis has answered in between", async () => {
+    let clock = 0;
+    let down = true;
+    const redis = {
+      get: async () => {
+        if (down) throw new Error("Connection is closed.");
+        return null;
+      },
+    } as unknown as Redis;
+    const cache = new RedisCache(redis, () => clock);
+    const warn = vi.spyOn(logger, "warn").mockImplementation(() => undefined);
+
+    await cache.getVersion("b");
+    clock = 2_000;
+    await cache.getVersion("b");
+    expect(warn).toHaveBeenCalledTimes(1);
+
+    down = false;
+    clock = 4_000;
+    await cache.getVersion("b");
+    down = true;
+    await cache.getVersion("b");
+    expect(warn).toHaveBeenCalledTimes(2);
+    warn.mockRestore();
   });
 });
 

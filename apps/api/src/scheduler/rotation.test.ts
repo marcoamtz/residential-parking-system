@@ -142,11 +142,16 @@ describe("rotateAllBuildings", () => {
     await db.insert(parkingSpots).values([{ buildingId: healthy, label: "S1" }]);
     await cycleWithEntrants(healthy, 1, "2026-10-01", "2026-12-31", ["a"]);
 
+    // parking_test is shared across runs: buildings this test did not create are left untouched,
+    // and only the two it owns are asserted on, so leftovers from other runs cannot affect it.
+    const owned = [failing, healthy];
     const rotateOne: typeof rotateBuilding = async (d, c, id, today, lead) => {
+      if (!owned.includes(id)) return { buildingId: id, actions: [] };
       if (id === failing) throw new Error('boom for "secret@example.com"');
       return rotateBuilding(d, c, id, today, lead);
     };
-    const results = await rotateAllBuildings(db, new NullCache(), "2026-09-25", 7, rotateOne);
+    const all = await rotateAllBuildings(db, new NullCache(), "2026-09-25", 7, rotateOne);
+    const results = all.filter((r) => owned.includes(r.buildingId));
 
     const forHealthy = results.find((r) => r.buildingId === healthy);
     expect(forHealthy?.error).toBeUndefined();
@@ -154,7 +159,9 @@ describe("rotateAllBuildings", () => {
     const forFailing = results.find((r) => r.buildingId === failing);
     expect(forFailing).toMatchObject({ actions: [], error: { name: "Error" } });
 
-    expect(() => assertRotationSucceeded(results)).toThrow(/failed for 1 of \d+ building/);
+    expect(() => assertRotationSucceeded(results)).toThrow(
+      "rotation failed for 1 of 2 building(s)",
+    );
     expect(() => assertRotationSucceeded(results.filter((r) => !r.error))).not.toThrow();
   });
 });

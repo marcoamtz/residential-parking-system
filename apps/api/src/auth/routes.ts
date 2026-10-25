@@ -1,6 +1,6 @@
 import { schema } from "@parking/db";
 import { asc, eq } from "drizzle-orm";
-import { Hono } from "hono";
+import { Hono, type MiddlewareHandler } from "hono";
 import { z } from "zod";
 import type { AppEnv, Deps, SessionUser } from "../deps";
 import { HttpError } from "../errors";
@@ -20,6 +20,12 @@ function toSessionUser(row: typeof users.$inferSelect): SessionUser {
 }
 
 export function authRoutes(deps: Deps) {
+  /** The development login does not exist unless MOCK_AUTH is on: 404 before any body is parsed. */
+  const mockAuthOnly: MiddlewareHandler<AppEnv> = async (_c, next) => {
+    if (!deps.mockAuth) throw new HttpError(404, "not_found", "Not available");
+    await next();
+  };
+
   return (
     new Hono<AppEnv>()
       .get("/me", requireAuth(deps), (c) => c.json({ user: c.get("user") }))
@@ -28,8 +34,7 @@ export function authRoutes(deps: Deps) {
         return c.body(null, 204);
       })
       /** Development only: lists sign-in choices for the mock login. */
-      .get("/dev-users", async (c) => {
-        if (!deps.mockAuth) throw new HttpError(404, "not_found", "Not available");
+      .get("/dev-users", mockAuthOnly, async (c) => {
         const rows = await deps.db
           .select({
             email: users.email,
@@ -43,8 +48,7 @@ export function authRoutes(deps: Deps) {
         return c.json({ users: rows });
       })
       /** Development only: password-less login. Replaced by an OIDC callback in production (ADR-0008). */
-      .post("/login", validate("json", z.object({ email: z.email() })), async (c) => {
-        if (!deps.mockAuth) throw new HttpError(404, "not_found", "Not available");
+      .post("/login", mockAuthOnly, validate("json", z.object({ email: z.email() })), async (c) => {
         const { email } = c.req.valid("json");
         const [row] = await deps.db.select().from(users).where(eq(users.email, email)).limit(1);
         if (!row) throw new HttpError(401, "unknown_user", "No user with that email");

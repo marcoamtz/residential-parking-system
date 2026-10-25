@@ -71,6 +71,9 @@ export async function getResidentStatus(
         gte(raffleCycles.endsOn, today),
       ),
     )
+    // Cycles never overlap (raffle_cycles_no_overlap_excl), so at most one row matches; the order
+    // keeps the query deterministic regardless.
+    .orderBy(desc(raffleCycles.startsOn))
     .limit(1);
 
   const [nextDrawn] = await db

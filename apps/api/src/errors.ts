@@ -15,12 +15,21 @@ export class HttpError extends Error {
   }
 }
 
+/** Whether the error, or one it wraps (Drizzle wraps pg errors in `cause`), carries this SQLSTATE. */
+function hasSqlState(error: unknown, sqlState: string): boolean {
+  if (typeof error !== "object" || error === null) return false;
+  if ((error as { code?: unknown }).code === sqlState) return true;
+  return hasSqlState((error as { cause?: unknown }).cause, sqlState);
+}
+
 /** PostgreSQL unique_violation, possibly wrapped by Drizzle. */
 export function isUniqueViolation(error: unknown): boolean {
-  if (typeof error !== "object" || error === null) return false;
-  const code = (error as { code?: unknown }).code;
-  if (code === "23505") return true;
-  return isUniqueViolation((error as { cause?: unknown }).cause);
+  return hasSqlState(error, "23505");
+}
+
+/** PostgreSQL exclusion_violation, possibly wrapped by Drizzle. */
+export function isExclusionViolation(error: unknown): boolean {
+  return hasSqlState(error, "23P01");
 }
 
 export interface ErrorDescription {

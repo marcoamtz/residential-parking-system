@@ -20,6 +20,8 @@ vi.mock("@/lib/api", async (importOriginal) => ({
 
 import { admin } from "@/lib/api";
 
+const original = await vi.importActual<typeof import("@/lib/api")>("@/lib/api");
+
 const mocked = vi.mocked(admin);
 
 const openCycle: CycleSummary = {
@@ -95,5 +97,42 @@ describe("AdminView draw confirmation", () => {
 
     await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
     expect(mocked.draw).not.toHaveBeenCalled();
+  });
+});
+
+describe("AdminView spot form", () => {
+  it("limits the label to the server's 20 characters", async () => {
+    arrange();
+    renderWithQuery(<AdminView />);
+
+    const input = await screen.findByLabelText("New spot label");
+    expect(input).toHaveAttribute("maxLength", "20");
+    await userEvent.type(input, "<script>alert(1)</script>");
+    expect(input).toHaveValue("<script>alert(1)</sc");
+  });
+
+  it("shows the server's field error, not the generic validation message", async () => {
+    arrange();
+    // The real client against a stubbed fetch, so the error mapping in lib/api.ts is exercised.
+    mocked.createSpot.mockImplementation(original.admin.createSpot);
+    const body = {
+      code: "validation_error",
+      message: "Invalid json",
+      issues: [{ path: "label", message: "Too big: expected string to have <=20 characters" }],
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response(JSON.stringify(body), { status: 400 })),
+    );
+    renderWithQuery(<AdminView />);
+
+    await userEvent.type(await screen.findByLabelText("New spot label"), "P5");
+    await userEvent.click(screen.getByRole("button", { name: "Add" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Too big: expected string to have <=20 characters",
+    );
+    expect(screen.queryByText("Invalid json")).toBeNull();
+    vi.unstubAllGlobals();
   });
 });

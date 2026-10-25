@@ -1,14 +1,17 @@
 import { Hono } from "hono";
+import { bodyLimit } from "hono/body-limit";
 import { requestId } from "hono/request-id";
 import { secureHeaders } from "hono/secure-headers";
 import { adminRoutes } from "./admin/routes";
 import { authRoutes } from "./auth/routes";
 import { requireCustomHeader } from "./csrf";
 import type { AppEnv, Deps } from "./deps";
-import { errorHandler } from "./errors";
+import { errorHandler, HttpError } from "./errors";
 import { healthRoutes } from "./health";
 import { requestLogging } from "./observability";
 import { residentRoutes } from "./resident/routes";
+
+const MAX_BODY_BYTES = 16 * 1024;
 
 /**
  * Route definitions live here so the web app can import `AppType` for a typed client
@@ -30,6 +33,16 @@ export function createApp(deps: Deps) {
       )
       .use(requestLogging)
       .use(requireCustomHeader)
+      // Every request body here is a few hundred bytes of JSON. The cap applies on every path,
+      // including the reference topology where the load balancer talks to the API directly.
+      .use(
+        bodyLimit({
+          maxSize: MAX_BODY_BYTES,
+          onError: () => {
+            throw new HttpError(413, "payload_too_large", "Request body exceeds 16 KB");
+          },
+        }),
+      )
       .onError(errorHandler)
       // Unmatched routes follow the same { code, message } contract as every other error.
       .notFound((c) => c.json({ code: "not_found", message: "Route not found" }, 404))

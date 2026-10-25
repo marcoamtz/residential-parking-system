@@ -7,7 +7,7 @@ Every requirement in the assessment brief, in the brief's order, with its status
 | Requirement | Status | Evidence |
 | --- | --- | --- |
 | Manage parking spot allocation for a residential unit | Built | `packages/domain` (draw), `apps/api` (routes, transaction), `apps/web` (resident and admin views) |
-| Rotate assignments every three months via a raffle | Built | Cycles are date ranges in the schema; the rotation worker computes calendar quarters, draws a week before each starts, and opens the next ([ADR-0012](adr/0012-rotation-worker-with-bullmq.md)); administrator button for exceptions and arbitrary periods |
+| Rotate assignments every three months via a raffle | Built | Cycles are date ranges in the schema; the rotation worker computes calendar quarters, draws a week before each starts, and opens the next ([ADR-0012](adr/0012-rotation-worker-with-bullmq.md)); administrator button for exceptions and arbitrary periods, which must start after the building's latest cycle (`400 cycle_not_after_latest`) and can never overlap another cycle (exclusion constraint) |
 | Track which residents have already benefited, to ensure fairness | Built | History is the `raffle_registrations` and `spot_allocations` tables; ranking inputs computed in `loadEntrants` ([02-domain-and-fairness.md](02-domain-and-fairness.md)) |
 | Lay foundations for real-time license plate recognition | Documented | [ADR-0009](adr/0009-lpr-as-async-event-subsystem.md), delegation plan in [04-delegation-plan.md](04-delegation-plan.md), issues #6–#11 |
 
@@ -31,7 +31,7 @@ Every requirement in the assessment brief, in the brief's order, with its status
 | 1d | Track residents' parking history to prioritize fairness | Built | History tables and the one-query ranking input in `apps/api/src/admin/draw.ts`; history table on the resident's page |
 | 2a | A simple web interface (React, Angular, or plain JavaScript) | Built | `apps/web`: React 19, Vite, shadcn/ui ([ADR-0010](adr/0010-react-vite-spa.md), [ADR-0011](adr/0011-shadcn-ui-from-the-start.md)); 14 component tests; verified end to end in a headless browser and through the container edge |
 | 2b | Residents can see their parking status and next allocation | Built | `GET /api/resident/status` returns `current`, `next` (the drawn cycle that has not started), `upcoming`, `history`; three cards in `ResidentView` |
-| 3a | Store residents, allocations, and history in a database | Built | PostgreSQL 16, schema in `packages/db/src/schema.ts`, migration `0000_initial_schema.sql`, invariants as constraints ([ADR-0002](adr/0002-postgresql-with-drizzle.md)) |
+| 3a | Store residents, allocations, and history in a database | Built | PostgreSQL 16, schema in `packages/db/src/schema.ts`, migrations in `packages/db/drizzle` (`0001_cycles_never_overlap.sql` adds the exclusion constraint Drizzle cannot express), invariants as constraints ([ADR-0002](adr/0002-postgresql-with-drizzle.md)) |
 | 3b | Implement caching for frequently accessed data | Built | Redis cache-aside for resident status keyed by a per-building version ([ADR-0005](adr/0005-redis-cache-aside-with-version-key.md)); `cache_requests_total{result}` metric; tests against a real Redis for invalidation and against an unreachable port for bounded fall-through (`apps/api/src/cache.test.ts`) |
 
 ## Architectural considerations
@@ -83,7 +83,7 @@ Every requirement in the assessment brief, in the brief's order, with its status
 | 4a | Clear, structured documentation another team member could follow | Built and documented | `README.md` cold-start sequence verified from an empty database; `docs/` numbered by deliverable; endpoint docs in [03-api.md](03-api.md) |
 | 4b | Communication plan (code reviews, sprint planning, decision-making) | Documented and practiced | [06-team-and-communication.md](06-team-and-communication.md); the first 30 commits (bootstrap through docs) were pushed directly on 2026-09-06 to 2026-09-13; since PR #1 on 2026-09-13 every change has landed through a pull request with the template, and branch protection binds administrators. The commit-subject rule dates from the hook's introduction; nine earlier subjects exceed its length limit and stay as they are, history is not rewritten |
 | 4c | How to onboard or guide a junior developer | Documented | Day-one checklist and the withdraw-registration starter brief in [06-team-and-communication.md](06-team-and-communication.md); issue #12 |
-| 5a | Proof-of-concept of the core allocation system | Built | Domain, API, web, worker; 95 automated tests (27 domain, 54 API, 14 web) run in CI against real PostgreSQL and Redis; container images built, scanned, and rehearsed as a running stack in CI |
+| 5a | Proof-of-concept of the core allocation system | Built | Domain, API, web, worker; 98 automated tests (27 domain, 57 API, 14 web) run in CI against real PostgreSQL and Redis; container images built, scanned, and rehearsed as a running stack in CI |
 
 ## Deliberately not built
 

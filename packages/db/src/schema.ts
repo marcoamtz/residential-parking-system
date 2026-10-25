@@ -111,6 +111,9 @@ export const raffleCycles = pgTable(
       .where(sql`${t.status} = 'open'`),
     check("raffle_cycles_sequence_positive_check", sql`${t.sequence} > 0`),
     check("raffle_cycles_period_check", sql`${t.endsOn} > ${t.startsOn}`),
+    // Cycles of one building never overlap, so no spot is held twice on the same day:
+    // `raffle_cycles_no_overlap_excl`, an EXCLUDE constraint Drizzle cannot express, lives in
+    // drizzle/0001_cycles_never_overlap.sql.
   ],
 );
 
