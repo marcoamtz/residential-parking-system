@@ -181,6 +181,14 @@ describe("with the development login disabled", () => {
     expect(await login.json()).toEqual({ code: "not_found", message: "Not available" });
   });
 
+  it("answers 404 for any login body, before validation or JSON parsing", async () => {
+    for (const body of [JSON.stringify({ email: "not-an-email" }), "{not json"]) {
+      const res = await locked.request("/api/auth/login", { method: "POST", headers, body });
+      expect(res.status).toBe(404);
+      expect(await res.json()).toEqual({ code: "not_found", message: "Not available" });
+    }
+  });
+
   it("still serves health and the session endpoint", async () => {
     expect((await locked.request("/api/health")).status).toBe(200);
     expect((await locked.request("/api/auth/me")).status).toBe(401);

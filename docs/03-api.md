@@ -30,7 +30,7 @@ Every response carries `X-Request-Id`, taken from the incoming header when a pro
 | GET | `/api/auth/me` | session | Current session claims. |
 | POST | `/api/auth/logout` | none | Clears the cookie. `204`. |
 | GET | `/api/auth/dev-users` | none | Development only. Lists seeded sign-in choices. `404` unless `MOCK_AUTH=true`; the default is on outside production and off in production, where enabling it logs a startup warning (the container rehearsal does this on purpose). |
-| POST | `/api/auth/login` | none | Development only, same `MOCK_AUTH` gate. Body `{ email }`. Issues the session cookie. Replaced by an OIDC callback in production. |
+| POST | `/api/auth/login` | none | Development only, same `MOCK_AUTH` gate, checked before the body is parsed, so every request gets `404` when it is off. Body `{ email }`. Issues the session cookie. Replaced by an OIDC callback in production. |
 
 ### Resident
 
