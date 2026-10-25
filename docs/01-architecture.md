@@ -64,7 +64,7 @@ sequenceDiagram
   A->>A: verify JWT, role = resident, residentId from claims
   A->>R: GET building:{b}:version
   R-->>A: 2
-  A->>R: GET building:{b}:v2:resident:{r}:status
+  A->>R: GET building:{b}:v2:s2:resident:{r}:status
   alt hit
     R-->>A: cached JSON
   else miss
@@ -119,7 +119,7 @@ Where the camera subsystem attaches: a new route module under `apps/api` for the
 
 ## Data flow and consistency
 
-- PostgreSQL is the only source of truth. Invariants are constraints: a spot allocated once per cycle, a registration wins at most once, a winner must be an entrant of that same cycle (composite foreign key), one open cycle per building (partial unique index). See [02-domain-and-fairness.md](02-domain-and-fairness.md).
+- PostgreSQL is the only source of truth. Invariants are constraints: a spot allocated once per cycle, a registration wins at most once, a winner must be an entrant of that same cycle (composite foreign key), one open cycle per building (partial unique index), cycles of a building never overlapping (exclusion constraint). See [02-domain-and-fairness.md](02-domain-and-fairness.md).
 - The draw's idempotency is a state transition inside the same transaction as the writes. Retries are safe by construction.
 - Redis accelerates one read path and is never consulted for a decision. If it is down, the API logs once and serves from PostgreSQL. If it is wiped, no allocation data is lost: cached reads rebuild from PostgreSQL, and the worker re-registers its schedule when it starts (`pnpm scheduler --once` runs the check immediately).
 - Every write that changes what residents see bumps the building version after commit, so a resident refreshing right after a draw sees the result. Between the commit and the bump there is a window of milliseconds where a read may cache stale data under the old version; the next bump makes that key unreachable, and the 300 second TTL bounds it in any case. The same TTL is the bound after a Redis outage: a write made while Redis was unreachable could not bump, so if Redis comes back with its data, entries cached before the outage are served until they expire, at most 300 seconds. That window is accepted ([ADR-0005](adr/0005-redis-cache-aside-with-version-key.md), amendment); during the outage itself every read comes from PostgreSQL.
@@ -162,7 +162,7 @@ flowchart TB
   prom["Prometheus / CloudWatch<br/>scrapes /api/metrics inside the VPC"]
 
   user --> cf
-  user -- "/api/*" --> alb
+  cf -- "/api/*" --> alb
   alb --> api1
   alb --> api2
   api1 --> rds
@@ -179,7 +179,7 @@ flowchart TB
   prom -.-> api2
 ```
 
-One API image serves three roles: API tasks, the single worker task, and the one-off migration task. Nothing in the VPC is reachable from the internet except through the load balancer, and `/api/metrics` is not routed by it.
+One API image serves three roles: API tasks, the single worker task, and the one-off migration task. The browser talks only to CloudFront, which serves the SPA and forwards `/api/*` to the load balancer, so the SPA's relative `/api` base works unchanged. Nothing in the VPC is reachable from the internet except through the load balancer, and `/api/metrics` is not routed by it. A CloudFront response-headers policy carries the same header set as the nginx edge (`apps/web/security-headers.conf`: CSP, `nosniff`, frame denial, referrer and permissions policies), so both deployment shapes send identical browser headers.
 
 ### Local prototype versus reference cloud topology
 
@@ -189,7 +189,7 @@ The prototype runs on Docker Compose. The reference topology below is the intend
 | --- | --- | --- |
 | API runtime | `tsx watch` in a terminal | `apps/api/Dockerfile`: `tsup` single-file bundle on `node:24-alpine`, non-root, on ECS Fargate, 2+ tasks across availability zones |
 | Web | Vite dev server with `/api` proxy | Static build in S3 behind CloudFront with `/api/*` routed to the ALB; `apps/web/Dockerfile` (unprivileged nginx, security headers, `/api/metrics` blocked at the edge) is the equivalent for container-only platforms |
-| Entry point | `localhost:5173` | Application Load Balancer, TLS termination, target health on `/api/ready`; `/api/metrics` not routed |
+| Entry point | `localhost:5173` | CloudFront (TLS) for the SPA and `/api/*`; behind it the Application Load Balancer, target health on `/api/ready`; `/api/metrics` not routed |
 | Database | `postgres:16-alpine` container | RDS for PostgreSQL 16, Multi-AZ, automated backups, point-in-time recovery, encryption at rest |
 | Cache and queue | `redis:7-alpine` container | ElastiCache for Redis, single node is enough; loss is tolerated by design |
 | Secrets | `.env` file (git-ignored) | Secrets Manager injected as task environment; `JWT_SECRET` rotated by redeploy |

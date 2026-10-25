@@ -27,3 +27,7 @@ The draw confirmation is a Radix `AlertDialog`: focus trap, Escape to cancel, la
 - Keep owned Tailwind components and adopt shadcn/ui when a composite widget appears: the position held for a day. Rejected because it defers a foundation decision and because a composite widget (the confirmation dialog) already existed in disguise.
 - A full component library (Mantine, MUI): styling lock-in and runtime CSS-in-JS for a two-page portal, with less control over markup.
 - Headless UI or React Aria directly, without shadcn: equally accessible, but every component would be styled from scratch, which is the work shadcn removes.
+
+## Amendment, 2026-10-25: dependency list
+
+`lucide-react` in the list above was never imported and was removed in `23a9948`. `shadcn` is a `devDependency`: the app uses it only for the build-time `@import "shadcn/tailwind.css"`, and its CLI's own dependencies do not belong in the production install.

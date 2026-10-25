@@ -11,7 +11,7 @@ The brief is explicit: the emphasis is on senior-level thinking, not on deliveri
 | Relational model with history | Residents, spots, cycles, registrations, and allocations in PostgreSQL. History is the allocation table itself, not a separate log ([ADR-0002](adr/0002-postgresql-with-drizzle.md)). |
 | Cache-aside for resident status | Required by the brief. Redis, version-keyed invalidation ([ADR-0005](adr/0005-redis-cache-aside-with-version-key.md)). |
 | Typed API | Hono with end-to-end request/response types shared with the web app ([ADR-0006](adr/0006-hono-api-with-shared-types.md)). |
-| Mock authentication and roles | Seeded users, JWT in an HttpOnly cookie, resident and admin roles ([ADR-0008](adr/0008-mock-auth-jwt-cookie-rbac.md)). |
+| Mock authentication and roles | Seeded users, JWT in an HttpOnly cookie, resident and admin roles. The mock login exists only when development is explicit; an unset `NODE_ENV` is production ([ADR-0008](adr/0008-mock-auth-jwt-cookie-rbac.md)). |
 | Minimal web UI | One resident page (status, next cycle, register) and one admin page (run draw, view results) ([ADR-0010](adr/0010-react-vite-spa.md)). |
 | Quarterly rotation worker | A BullMQ repeatable job draws each open cycle a week before it starts and opens the next quarter in the same run; after downtime it draws the overdue cycle and opens the first quarter whose draw day is still ahead; `--once` mode for platform cron ([ADR-0012](adr/0012-rotation-worker-with-bullmq.md)). |
 | Local infrastructure | Docker Compose for PostgreSQL and Redis. Container images for API, worker, and web. CI runs lint, typecheck, tests, and image builds. |
@@ -27,7 +27,7 @@ The brief is explicit: the emphasis is on senior-level thinking, not on deliveri
 | PgBouncer, load balancing, error tracking | [05-tools-and-strategies.md](05-tools-and-strategies.md). Application-side pooling (`pg.Pool`), logs, metrics, and readiness are built. |
 | Withdrawing a registration | The onboarding starter task, issue #12 ([06-team-and-communication.md](06-team-and-communication.md)). |
 | Households with more than one vehicle, mid-cycle reassignment, building time zones, quarter alignment | Known limits with sketched extensions in [02-domain-and-fairness.md](02-domain-and-fairness.md). |
-| Dependency audit gate, digest-pinned base images, image scan threshold | Documented as next steps in [05-tools-and-strategies.md](05-tools-and-strategies.md); the scan runs but is informational. |
+| Dependency audit gate, digest-pinned base images, image scan threshold | Documented as next steps in [05-tools-and-strategies.md](05-tools-and-strategies.md); the scan runs but is informational. Dependabot proposes weekly updates; `pnpm audit --prod` is clean. |
 | Spot preferences and accessibility needs | Out of scope for the draw. Flagged as the first fairness extension in [02-domain-and-fairness.md](02-domain-and-fairness.md). |
 
 ## How this maps to the brief

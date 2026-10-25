@@ -20,7 +20,7 @@ const MAX_BODY_BYTES = 16 * 1024;
 export function createApp(deps: Deps) {
   return (
     new Hono<AppEnv>()
-      // Honors an incoming X-Request-Id (from the load balancer or nginx) or generates one.
+      // Honors an incoming X-Request-Id (the nginx edge sets one) or generates one.
       .use(requestId())
       // JSON API: no framing, no sniffing, no referrer leakage. HSTS is left to the TLS edge:
       // this process never terminates TLS, so it must not claim the origin is HTTPS-only.
