@@ -36,7 +36,7 @@ Why each was chosen, and what was rejected: [docs/05-tools-and-strategies.md](do
 
 ## Run it locally
 
-Requirements: Node.js 24 (pinned in `.node-version` for nvm and fnm; 22 or newer works), pnpm 10, Docker.
+Requirements: Node.js 24 (pinned in `.node-version` for nvm and fnm; 22 or newer works), pnpm 10, Docker, and a POSIX shell for the package scripts (macOS, Linux, or WSL).
 
 ```sh
 docker compose up -d --wait       # PostgreSQL 16 and Redis 7, waits for health checks
@@ -50,7 +50,7 @@ pnpm scheduler --once             # optional: today's rotation check (draw due c
 
 `pnpm scheduler` without `--once` runs the long-lived worker that does the same check daily at 06:00 UTC ([ADR-0012](docs/adr/0012-rotation-worker-with-bullmq.md)). A building whose rotation fails is logged and skipped, the others still run, and the run then exits 1 (or fails the job) so it is noticed; the next run retries it.
 
-No `.env` file is needed for local development: the API falls back to the Docker Compose connection strings and a development-only JWT secret. To override anything, `cp .env.example .env` and edit; the file documents every variable and its default. In production `DATABASE_URL`, `REDIS_URL`, and `JWT_SECRET` are required and the API refuses to start without them; the rest keep their defaults.
+No `.env` file is needed for local development: `pnpm dev`, `pnpm db:seed`, and `pnpm scheduler` run with `NODE_ENV=development` unless you set it, and in development the API falls back to the Docker Compose connection strings and a development-only JWT secret. To override anything, `cp .env.example .env` and edit; the file documents every variable and its default. An unset `NODE_ENV` means production: `DATABASE_URL`, `REDIS_URL`, and `JWT_SECRET` are then required and the API refuses to start without them, the password-less login is off, and the seed refuses to run.
 
 To start over from an empty database: `docker compose down -v`, then repeat from `docker compose up -d --wait`.
 

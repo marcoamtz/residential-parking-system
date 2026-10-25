@@ -1,7 +1,11 @@
 import { z } from "zod";
 
 const schema = z.object({
-  NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
+  /**
+   * Unset means production: a bare `node dist/index.js` requires real secrets and has no mock login.
+   * The development scripts (`pnpm dev`, `db:seed`, `scheduler`) set development explicitly.
+   */
+  NODE_ENV: z.enum(["development", "test", "production"]).default("production"),
   PORT: z.coerce.number().int().positive().default(3000),
   DATABASE_URL: z.url().optional(),
   REDIS_URL: z.url().optional(),

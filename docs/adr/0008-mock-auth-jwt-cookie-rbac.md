@@ -29,3 +29,9 @@ The brief asks for at least a mock authentication and authorization implementati
 ## Amendment, 2026-09-14: the `Secure` flag follows the environment
 
 `Secure` is set when `NODE_ENV=production` (`cookieSecure` in `apps/api/src/env.ts`); local development runs over plain HTTP, where a `Secure` cookie would never be returned by the browser. `HttpOnly` and `SameSite=Strict` are set in every environment. The decision bullet above was qualified accordingly; the earlier unqualified wording was repeated in docs/03, docs/05, and docs/07 and has been corrected there too.
+
+## Amendment, 2026-10-25: unset means production; what the mock session does not do
+
+`NODE_ENV` defaults to `production` (`apps/api/src/env.ts`). Before, it defaulted to `development`, so a process started with no configuration enabled the password-less login and signed sessions with the development secret committed in the repository, which lets anyone mint an administrator session. Now an unconfigured process refuses to start without `DATABASE_URL`, `REDIS_URL`, and `JWT_SECRET`, keeps `MOCK_AUTH` off unless it is set explicitly, and the seed refuses to run. Development is opt-in: the `dev`, `seed`, and `scheduler` package scripts set `NODE_ENV=development` when it is unset, tests run as `test`, and the container image sets `production`.
+
+Accepted limits of the mock session, to change with a real identity provider: a session is a 12 hour JWT with no server-side revocation, so a role or building change, or a removed administrator, takes effect only when the token expires; logout deletes the cookie but does not invalidate a copied token; and login does not check `residents.moved_out_at`, so a moved-out resident can still sign in (registration rejects them with `403 resident_inactive`). The OIDC swap replaces the login route and is the point to add a short session lifetime with refresh, a revocation list or session version, and the move-out check.

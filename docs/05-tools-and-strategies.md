@@ -69,6 +69,7 @@ Stack rationale in full lives in the ADRs. This document summarizes the choices,
 - Session is an HS256 JWT with a 12 hour expiry in an `HttpOnly`, `SameSite=Strict` cookie, flagged `Secure` in production (local development runs over plain HTTP, where a `Secure` cookie would never be sent back). Scripts cannot read it; cross-site requests do not carry it.
 - Role middleware runs before any handler. Resident routes derive the resident from claims; no route accepts a resident id from the client. Admin routes scope every query by the administrator's building.
 - The development login is behind `MOCK_AUTH`: on by default outside production, off by default in production, and a startup warning is logged if it is enabled there. Swapping to OIDC replaces one route.
+- Configuration fails closed: an unset `NODE_ENV` means production, so a process started without configuration has no password-less login, refuses to start without `DATABASE_URL`, `REDIS_URL`, and `JWT_SECRET`, and never signs sessions with the development secret. Only the local `pnpm` scripts opt into development.
 
 **Common vulnerabilities, mapped to code.**
 | Threat | Control | Where |
