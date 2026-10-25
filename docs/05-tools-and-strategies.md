@@ -21,7 +21,7 @@ Stack rationale in full lives in the ADRs. This document summarizes the choices,
 | Tool | Problem it solves |
 | --- | --- |
 | TypeScript strict mode with `noUncheckedIndexedAccess` | Array access and optional data are checked at compile time; the codebase has no non-null assertions. |
-| Biome | One tool for lint and format, fast enough to run on every save and in CI. |
+| Biome | One tool for lint and format, fast enough to run on every save and in CI. Markdown is excluded: Biome 2.6 started reformatting tables, and padded columns would churn every doc diff; the docs are checked by the relative-link script instead. |
 | Vitest | Same runner for pure domain tests, PostgreSQL-backed integration tests (against a dedicated `parking_test` database that the global setup creates and migrates), and React component tests (Testing Library on jsdom). |
 | Docker Compose | PostgreSQL and Redis locally with health checks; the same images CI uses as services. |
 | lefthook | Git hooks installed by `pnpm install`: Biome on staged files at commit, Conventional Commits check on the message, typecheck and the database-free tests before push. CI enforces the same gates; the hooks exist to fail fast. |

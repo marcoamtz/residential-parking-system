@@ -7,7 +7,7 @@
   },
   "files": {
     "ignoreUnknown": false,
-    "includes": ["**", "!**/dist", "!**/drizzle", "!pnpm-lock.yaml"]
+    "includes": ["**", "!**/dist", "!**/drizzle", "!pnpm-lock.yaml", "!**/*.md"]
   },
   "css": {
     "parser": {
