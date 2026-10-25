@@ -7,7 +7,7 @@ Every requirement in the assessment brief, in the brief's order, with its status
 | Requirement | Status | Evidence |
 | --- | --- | --- |
 | Manage parking spot allocation for a residential unit | Built | `packages/domain` (draw), `apps/api` (routes, transaction), `apps/web` (resident and admin views) |
-| Rotate assignments every three months via a raffle | Built | Cycles are date ranges in the schema; the rotation worker computes calendar quarters, draws a week before each starts, and opens the next ([ADR-0012](adr/0012-rotation-worker-with-bullmq.md)); administrator button for exceptions and arbitrary periods |
+| Rotate assignments every three months via a raffle | Built | Cycles are date ranges in the schema; the rotation worker computes calendar quarters, draws a week before each starts, and opens the next ([ADR-0012](adr/0012-rotation-worker-with-bullmq.md)); administrator button for exceptions and arbitrary periods, which must start after the building's latest cycle (`400 cycle_not_after_latest`) and can never overlap another cycle (exclusion constraint) |
 | Track which residents have already benefited, to ensure fairness | Built | History is the `raffle_registrations` and `spot_allocations` tables; ranking inputs computed in `loadEntrants` ([02-domain-and-fairness.md](02-domain-and-fairness.md)) |
 | Lay foundations for real-time license plate recognition | Documented | [ADR-0009](adr/0009-lpr-as-async-event-subsystem.md), delegation plan in [04-delegation-plan.md](04-delegation-plan.md), issues #6–#11 |
 
@@ -83,7 +83,7 @@ Every requirement in the assessment brief, in the brief's order, with its status
 | 4a | Clear, structured documentation another team member could follow | Built and documented | `README.md` cold-start sequence verified from an empty database; `docs/` numbered by deliverable; endpoint docs in [03-api.md](03-api.md) |
 | 4b | Communication plan (code reviews, sprint planning, decision-making) | Documented and practiced | [06-team-and-communication.md](06-team-and-communication.md); the first 30 commits (bootstrap through docs) were pushed directly on 2026-09-06 to 2026-09-13; since PR #1 on 2026-09-13 every change has landed through a pull request with the template, and branch protection binds administrators. The commit-subject rule dates from the hook's introduction; nine earlier subjects exceed its length limit and stay as they are, history is not rewritten |
 | 4c | How to onboard or guide a junior developer | Documented | Day-one checklist and the withdraw-registration starter brief in [06-team-and-communication.md](06-team-and-communication.md); issue #12 |
-| 5a | Proof-of-concept of the core allocation system | Built | Domain, API, web, worker; 95 automated tests (27 domain, 54 API, 14 web) run in CI against real PostgreSQL and Redis; container images built, scanned, and rehearsed as a running stack in CI |
+| 5a | Proof-of-concept of the core allocation system | Built | Domain, API, web, worker; 98 automated tests (27 domain, 57 API, 14 web) run in CI against real PostgreSQL and Redis; container images built, scanned, and rehearsed as a running stack in CI |
 
 ## Deliberately not built
 

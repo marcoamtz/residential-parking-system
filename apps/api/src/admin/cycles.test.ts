@@ -63,17 +63,32 @@ async function closeOpenCycle(buildingId: string) {
 }
 
 describe("POST /api/admin/cycles", () => {
-  it("rejects a period that overlaps another cycle of the building", async () => {
+  it("rejects a period that does not start after the building's latest cycle", async () => {
     const b = await building();
     expect((await createCycle(b, "2030-10-01", "2030-12-31")).status).toBe(201);
     await closeOpenCycle(b);
 
-    // Drawing this cycle would hand out spots already held for 2030-11-01..03.
-    const overlapping = await createCycle(b, "2030-11-01", "2030-11-03");
-    expect(overlapping.status).toBe(409);
-    expect(await overlapping.json()).toMatchObject({ code: "cycle_overlap" });
-    // Sharing a single day is an overlap too: both bounds are inclusive.
-    expect((await createCycle(b, "2030-12-31", "2031-03-31")).status).toBe(409);
+    // A back-dated cycle would take the highest sequence and break the rotation and the ranking.
+    const past = await createCycle(b, "2020-01-01", "2020-03-31");
+    expect(past.status).toBe(400);
+    expect(await past.json()).toEqual({
+      code: "cycle_not_after_latest",
+      message: "startsOn must be after the building's latest cycle, which ends on 2030-12-31",
+    });
+    // Overlapping, including a single shared day, is not after the latest cycle either.
+    expect((await createCycle(b, "2030-11-01", "2030-11-03")).status).toBe(400);
+    expect((await createCycle(b, "2030-12-31", "2031-03-31")).status).toBe(400);
+  });
+
+  it("keeps the exclusion constraint as the database guard for any other writer", async () => {
+    const b = await building();
+    expect((await createCycle(b, "2030-10-01", "2030-12-31")).status).toBe(201);
+    await closeOpenCycle(b);
+
+    const direct = db
+      .insert(raffleCycles)
+      .values({ buildingId: b, sequence: 2, startsOn: "2030-11-01", endsOn: "2030-11-03" });
+    await expect(direct).rejects.toMatchObject({ cause: { code: "23P01" } });
   });
 
   it("accepts the adjacent quarter and the same period in another building", async () => {
