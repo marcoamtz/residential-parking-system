@@ -40,12 +40,17 @@
             "noRestrictedImports": {
               "level": "error",
               "options": {
-                "patterns": [
-                  {
-                    "group": ["@parking/*"],
+                "paths": {
+                  "@parking/db": {
+                    "message": "the domain imports nothing from the workspace (ADR-0001)"
+                  },
+                  "@parking/api": {
+                    "message": "the domain imports nothing from the workspace (ADR-0001)"
+                  },
+                  "@parking/web": {
                     "message": "the domain imports nothing from the workspace (ADR-0001)"
                   }
-                ]
+                }
               }
             }
           }
