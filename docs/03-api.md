@@ -47,7 +47,7 @@ Withdrawing a registration is intentionally not implemented. It is the documente
 | Method | Path | Notes |
 | --- | --- | --- |
 | GET | `/api/admin/cycles` | Cycles for the building with registration counts, newest first. |
-| POST | `/api/admin/cycles` | Body `{ startsOn, endsOn }` as `YYYY-MM-DD`. Sequence is assigned server-side. `201`. `409 open_cycle_exists` if a cycle is already open (enforced by a partial unique index). |
+| POST | `/api/admin/cycles` | Body `{ startsOn, endsOn }` as `YYYY-MM-DD`. Sequence is assigned server-side. `201`. `400 invalid_period` unless `endsOn` is after `startsOn`. `409 open_cycle_exists` if a cycle is already open (enforced by a partial unique index). `409 cycle_overlap` if the period overlaps another cycle of the building, bounds inclusive (enforced by an exclusion constraint). |
 | GET | `/api/admin/cycles/:id` | Cycle, every registration with rank and spot when drawn, and the draw's seed and time. |
 | GET | `/api/admin/cycles/:id/verification` | The same verification record residents get, for the administrator's building. |
 | POST | `/api/admin/cycles/:id/draw` | Runs the draw in one transaction ([ADR-0004](adr/0004-draw-idempotency-via-cycle-state.md)). `201` with counts. `409 cycle_already_drawn` on a repeat. |

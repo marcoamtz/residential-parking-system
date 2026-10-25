@@ -1,7 +1,7 @@
 import type { Db } from "@parking/db";
 import { schema } from "@parking/db";
 import { and, asc, count, desc, eq, sql } from "drizzle-orm";
-import { HttpError, isUniqueViolation } from "../errors";
+import { HttpError, isExclusionViolation, isUniqueViolation } from "../errors";
 
 const { raffleCycles, raffleRegistrations, spotAllocations, parkingSpots, residents, raffleDraws } =
   schema;
@@ -53,6 +53,13 @@ export async function createCycle(
   } catch (error) {
     if (isUniqueViolation(error)) {
       throw new HttpError(409, "open_cycle_exists", "A cycle is already open for this building");
+    }
+    if (isExclusionViolation(error)) {
+      throw new HttpError(
+        409,
+        "cycle_overlap",
+        "The period overlaps another cycle of this building",
+      );
     }
     throw error;
   }

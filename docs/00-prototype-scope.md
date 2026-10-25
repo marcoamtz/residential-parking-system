@@ -7,7 +7,7 @@ The brief is explicit: the emphasis is on senior-level thinking, not on deliveri
 | Area | Why it is in the prototype |
 | --- | --- |
 | Fair allocation engine | The core of the domain. A deterministic, replayable draw with a one-sentence fairness rule ([ADR-0003](adr/0003-fairness-ranking-rule.md)). |
-| Draw idempotency | Double-allocation is the one bug residents would notice. Enforced by constraints and a status transition that relies on PostgreSQL's own row lock; no separate advisory or application lock ([ADR-0004](adr/0004-draw-idempotency-via-cycle-state.md)). |
+| Draw idempotency | Double-allocation is the one bug residents would notice. Enforced by constraints (a spot once per cycle, cycles of a building never overlapping) and a status transition that relies on PostgreSQL's own row lock; no separate advisory or application lock ([ADR-0004](adr/0004-draw-idempotency-via-cycle-state.md)). |
 | Relational model with history | Residents, spots, cycles, registrations, and allocations in PostgreSQL. History is the allocation table itself, not a separate log ([ADR-0002](adr/0002-postgresql-with-drizzle.md)). |
 | Cache-aside for resident status | Required by the brief. Redis, version-keyed invalidation ([ADR-0005](adr/0005-redis-cache-aside-with-version-key.md)). |
 | Typed API | Hono with end-to-end request/response types shared with the web app ([ADR-0006](adr/0006-hono-api-with-shared-types.md)). |

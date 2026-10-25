@@ -31,7 +31,7 @@ Every requirement in the assessment brief, in the brief's order, with its status
 | 1d | Track residents' parking history to prioritize fairness | Built | History tables and the one-query ranking input in `apps/api/src/admin/draw.ts`; history table on the resident's page |
 | 2a | A simple web interface (React, Angular, or plain JavaScript) | Built | `apps/web`: React 19, Vite, shadcn/ui ([ADR-0010](adr/0010-react-vite-spa.md), [ADR-0011](adr/0011-shadcn-ui-from-the-start.md)); 14 component tests; verified end to end in a headless browser and through the container edge |
 | 2b | Residents can see their parking status and next allocation | Built | `GET /api/resident/status` returns `current`, `next` (the drawn cycle that has not started), `upcoming`, `history`; three cards in `ResidentView` |
-| 3a | Store residents, allocations, and history in a database | Built | PostgreSQL 16, schema in `packages/db/src/schema.ts`, migration `0000_initial_schema.sql`, invariants as constraints ([ADR-0002](adr/0002-postgresql-with-drizzle.md)) |
+| 3a | Store residents, allocations, and history in a database | Built | PostgreSQL 16, schema in `packages/db/src/schema.ts`, migrations in `packages/db/drizzle` (`0001_cycles_never_overlap.sql` adds the exclusion constraint Drizzle cannot express), invariants as constraints ([ADR-0002](adr/0002-postgresql-with-drizzle.md)) |
 | 3b | Implement caching for frequently accessed data | Built | Redis cache-aside for resident status keyed by a per-building version ([ADR-0005](adr/0005-redis-cache-aside-with-version-key.md)); `cache_requests_total{result}` metric; tests against a real Redis for invalidation and against an unreachable port for bounded fall-through (`apps/api/src/cache.test.ts`) |
 
 ## Architectural considerations
