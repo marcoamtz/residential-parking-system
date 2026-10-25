@@ -30,7 +30,7 @@ export function authRoutes(deps: Deps) {
     new Hono<AppEnv>()
       .get("/me", requireAuth(deps), (c) => c.json({ user: c.get("user") }))
       .post("/logout", (c) => {
-        clearSession(c);
+        clearSession(c, deps);
         return c.body(null, 204);
       })
       /** Development only: lists sign-in choices for the mock login. */

@@ -38,8 +38,14 @@ export async function issueSession(c: Context, deps: Deps, user: SessionUser): P
   });
 }
 
-export function clearSession(c: Context): void {
-  deleteCookie(c, COOKIE, { path: "/" });
+/** Clears the cookie with the attributes it was issued with, so production never sends it without Secure. */
+export function clearSession(c: Context, deps: Deps): void {
+  deleteCookie(c, COOKIE, {
+    path: "/",
+    httpOnly: true,
+    secure: deps.cookieSecure,
+    sameSite: "Strict",
+  });
 }
 
 export function requireAuth(deps: Deps): MiddlewareHandler<AppEnv> {

@@ -1,11 +1,8 @@
 import { z } from "zod";
 
 const schema = z.object({
-  /**
-   * Unset means production: a bare `node dist/index.js` requires real secrets and has no mock login.
-   * The development scripts (`pnpm dev`, `db:seed`, `scheduler`) set development explicitly.
-   */
-  NODE_ENV: z.enum(["development", "test", "production"]).default("production"),
+  /** Resolved by loadEnv: the process or `.env` value, else NODE_ENV_DEFAULT, else production. */
+  NODE_ENV: z.enum(["development", "test", "production"]),
   PORT: z.coerce.number().int().positive().default(3000),
   DATABASE_URL: z.url().optional(),
   REDIS_URL: z.url().optional(),
@@ -27,8 +24,17 @@ const developmentDefaults = {
 
 export type Env = ReturnType<typeof loadEnv>;
 
+/**
+ * Reads configuration after loadDotenv has run. NODE_ENV comes from the shell or the root `.env`
+ * (loadDotenv never overwrites a shell variable), then from NODE_ENV_DEFAULT, which only the local
+ * development scripts set, and is production otherwise: a bare `node dist/index.js` requires real
+ * secrets and has no mock login, and a `.env` saying production is never downgraded by a script.
+ */
 export function loadEnv(source: NodeJS.ProcessEnv = process.env) {
-  const raw = schema.parse(source);
+  const raw = schema.parse({
+    ...source,
+    NODE_ENV: source.NODE_ENV ?? source.NODE_ENV_DEFAULT ?? "production",
+  });
   const missing = (["DATABASE_URL", "REDIS_URL", "JWT_SECRET"] as const).filter((k) => !raw[k]);
   if (raw.NODE_ENV === "production" && missing.length > 0) {
     throw new Error(`Missing required environment variables in production: ${missing.join(", ")}`);
@@ -46,10 +52,10 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env) {
   };
 }
 
-/** Loads the repository root `.env` if present. Existing process variables win. */
-export function loadDotenv(): void {
+/** Loads the repository root `.env` (or `path`) if present. Existing process variables win. */
+export function loadDotenv(path = new URL("../../../.env", import.meta.url).pathname): void {
   try {
-    process.loadEnvFile(new URL("../../../.env", import.meta.url).pathname);
+    process.loadEnvFile(path);
   } catch {
     // No .env file: rely on the process environment (CI, containers).
   }

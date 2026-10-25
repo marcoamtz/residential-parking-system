@@ -194,6 +194,15 @@ describe("with the development login disabled", () => {
     expect(await login.json()).toEqual({ code: "not_found", message: "Not available" });
   });
 
+  it("clears the session cookie with Secure when cookies are Secure", async () => {
+    const secure = createApp({ ...deps, mockAuth: false, cookieSecure: true });
+    const res = await secure.request("/api/auth/logout", { method: "POST", headers });
+    expect(res.status).toBe(204);
+    expect(res.headers.get("set-cookie")).toMatch(
+      /^session=; Max-Age=0; .*HttpOnly; Secure; SameSite=Strict/,
+    );
+  });
+
   it("answers 404 for any login body, before validation or JSON parsing", async () => {
     for (const body of [JSON.stringify({ email: "not-an-email" }), "{not json"]) {
       const res = await locked.request("/api/auth/login", { method: "POST", headers, body });

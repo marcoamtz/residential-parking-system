@@ -83,7 +83,7 @@ Every requirement in the assessment brief, in the brief's order, with its status
 | 4a | Clear, structured documentation another team member could follow | Built and documented | `README.md` cold-start sequence verified from an empty database; `docs/` numbered by deliverable; endpoint docs in [03-api.md](03-api.md) |
 | 4b | Communication plan (code reviews, sprint planning, decision-making) | Documented and practiced | [06-team-and-communication.md](06-team-and-communication.md); the first 30 commits (bootstrap through docs) were pushed directly on 2026-09-06 to 2026-09-13; since PR #1 on 2026-09-13 every change has landed through a pull request with the template, and branch protection binds administrators. The commit-subject rule dates from the hook's introduction; nine earlier subjects exceed its length limit and stay as they are, history is not rewritten |
 | 4c | How to onboard or guide a junior developer | Documented | Day-one checklist and the withdraw-registration starter brief in [06-team-and-communication.md](06-team-and-communication.md); issue #12 |
-| 5a | Proof-of-concept of the core allocation system | Built | Domain, API, web, worker; 98 automated tests (27 domain, 57 API, 14 web) run in CI against real PostgreSQL and Redis; container images built, scanned, and rehearsed as a running stack in CI |
+| 5a | Proof-of-concept of the core allocation system | Built | Domain, API, web, worker; 112 automated tests (27 domain, 69 API, 16 web) run in CI against real PostgreSQL and Redis; container images built, scanned, and rehearsed as a running stack in CI |
 
 ## Deliberately not built
 
