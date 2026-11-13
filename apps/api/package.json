@@ -16,7 +16,7 @@
     "scheduler": "NODE_ENV_DEFAULT=development tsx src/scheduler/index.ts"
   },
   "dependencies": {
-    "@hono/node-server": "^2.1.5",
+    "@hono/node-server": "^2.1.6",
     "@hono/zod-validator": "^0.9.1",
     "@parking/db": "workspace:*",
     "@parking/domain": "workspace:*",
