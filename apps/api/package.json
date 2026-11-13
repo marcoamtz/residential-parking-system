@@ -22,7 +22,7 @@
     "@parking/domain": "workspace:*",
     "bullmq": "^6.4.0",
     "drizzle-orm": "^0.45.4",
-    "hono": "^4.13.11",
+    "hono": "^4.13.16",
     "ioredis": "^6.0.0",
     "pino": "^10.4.0",
     "prom-client": "^15.1.3",
